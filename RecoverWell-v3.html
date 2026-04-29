@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>RecoverWell</title>
+
+  <!-- PWA / iOS Home Screen -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="RecoverWell" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1E2D27" />
+  <meta name="description" content="Your personal physical therapy recovery companion." />
+
+  <!-- App icon (SVG inline as data URI for portability) -->
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%231E2D27'/%3E%3Ctext x='256' y='340' font-size='260' text-anchor='middle'%3E🌱%3C/text%3E%3C/svg%3E" />
+
+  <!-- Web App Manifest (inline) -->
+  <script>
+    const manifest = {
+      name: "RecoverWell",
+      short_name: "RecoverWell",
+      description: "Your personal physical therapy recovery companion.",
+      start_url: ".",
+      display: "standalone",
+      background_color: "#F8F7F3",
+      theme_color: "#1E2D27",
+      orientation: "portrait",
+      icons: [{
+        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='100' fill='%231E2D27'/%3E%3Ctext x='256' y='340' font-size='260' text-anchor='middle'%3E🌱%3C/text%3E%3C/svg%3E",
+        sizes: "512x512",
+        type: "image/svg+xml"
+      }]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("link");
+    link.rel = "manifest";
+    link.href = url;
+    document.head.appendChild(link);
+  </script>
+
+  <!-- Service Worker registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const sw = `
+          const CACHE = 'recoverwell-v1';
+          self.addEventListener('install', e => {
+            e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/'])));
+            self.skipWaiting();
+          });
+          self.addEventListener('activate', e => {
+            e.waitUntil(clients.claim());
+          });
+          self.addEventListener('fetch', e => {
+            e.respondWith(
+              caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('/')))
+            );
+          });
+        `;
+        const swBlob = new Blob([sw], { type: 'application/javascript' });
+        const swUrl = URL.createObjectURL(swBlob);
+        navigator.serviceWorker.register(swUrl).catch(() => {});
+      });
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --mint: #3EC99A;
+      --mint-dark: #27A87C;
+      --mint-light: #E6F9F2;
+      --cream: #F8F7F3;
+      --white: #FFFFFF;
+      --charcoal: #1E2D27;
+      --slate: #4A6358;
+      --mist: #A8C0B5;
+      --warm: #F4EFE6;
+      --accent: #FF7B54;
+      --accent-light: #FFF1EC;
+      --gold: #F5A623;
+      --purple: #9B8EC4;
+      --easy: #3EC99A;
+      --moderate: #F5A623;
+      --hard: #E85B4B;
+      --safe-top: env(safe-area-inset-top, 44px);
+      --safe-bottom: env(safe-area-inset-bottom, 20px);
+    }
+    html, body { height: 100%; background: var(--cream); font-family: 'Trebuchet MS', sans-serif; -webkit-font-smoothing: antialiased; }
+    body { overscroll-behavior: none; }
+    #app { max-width: 430px; margin: 0 auto; min-height: 100vh; position: relative; }
+    button { font-family: inherit; }
+    input, textarea { font-family: inherit; }
+    .screen { min-height: 100vh; background: var(--cream); }
+    .hero { background: linear-gradient(145deg, #1E2D27, #2A4038); border-radius: 0 0 32px 32px; padding: calc(var(--safe-top) + 20px) 24px 28px; }
+    .hero h1 { color: white; font-family: Georgia, serif; font-size: 28px; margin: 0 0 4px; }
+    .hero p { color: var(--mist); font-size: 14px; margin: 0; }
+    .card { background: white; border-radius: 20px; padding: 18px 20px; box-shadow: 0 2px 16px rgba(30,45,39,0.07); }
+    .chip { display: inline-block; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.4px; }
+    .tab-bar { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: white; border-top: 1px solid #E8F0EB; padding: 10px 0 calc(var(--safe-bottom) + 6px); display: flex; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 20px rgba(30,45,39,0.08); }
+    .tab-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; cursor: pointer; padding: 4px 8px; transition: color 0.2s; }
+    .tab-btn span:first-child { font-size: 20px; }
+    .tab-btn span:last-child { font-size: 10px; font-weight: 500; }
+    .tab-btn.active { color: var(--mint); }
+    .tab-btn.active span:last-child { font-weight: 700; }
+    .tab-btn:not(.active) { color: var(--mist); }
+    .pb-nav { padding-bottom: calc(90px + var(--safe-bottom)); }
+    .install-banner { display: none; position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%; transform: translateX(-50%); width: calc(100% - 32px); max-width: 400px; background: var(--charcoal); color: white; border-radius: 16px; padding: 14px 18px; font-size: 13px; line-height: 1.5; z-index: 200; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+    .install-banner.show { display: block; }
+    .install-banner strong { color: var(--mint); }
+    .install-banner button { background: none; border: none; color: var(--mist); float: right; font-size: 18px; cursor: pointer; margin-top: -2px; }
+
+    /* Modal overlay */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(30,45,39,0.75); z-index: 200; display: flex; align-items: flex-end; justify-content: center; }
+    .modal-sheet { background: var(--cream); border-radius: 28px 28px 0 0; width: 100%; max-width: 430px; max-height: 88vh; overflow-y: auto; }
+
+    /* Animations */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
+
+    /* Progress bar */
+    .onboard-progress { height: 4px; background: #E0EDE8; }
+    .onboard-progress-bar { height: 100%; background: var(--mint); transition: width 0.4s ease; }
+
+    /* Ring SVG */
+    .ring-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .ring-wrap .ring-inner { position: absolute; text-align: center; }
+
+    /* Scroll fix */
+    .scroll-x { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .scroll-x::-webkit-scrollbar { display: none; }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const { useState, useEffect, useRef } = React;
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+const SURGERY_TYPES = [
+  { id:"knee",     label:"Knee",            icon:"🦵", desc:"ACL, meniscus, or replacement" },
+  { id:"hip",      label:"Hip",             icon:"🦴", desc:"Hip replacement or labral repair" },
+  { id:"shoulder", label:"Shoulder",        icon:"💪", desc:"Rotator cuff or labrum" },
+  { id:"back",     label:"Back & Spine",    icon:"🧘", desc:"Discectomy or fusion" },
+  { id:"ankle",    label:"Ankle & Foot",    icon:"🦶", desc:"Sprain, fracture, or Achilles" },
+  { id:"elbow",    label:"Elbow & Wrist",   icon:"🤜", desc:"Tennis elbow, fracture, or tendon" },
+  { id:"calf",     label:"Calf & Hamstring",icon:"🦿", desc:"Muscle tear, strain, or Achilles" },
+];
+
+const SUBCATEGORIES = {
+  knee: [
+    { id:"acl",label:"ACL Reconstruction",icon:"⚡",desc:"Ligament reconstruction, often sport-related",precautions:["No full weight bearing first 2-4 weeks","No pivoting or twisting for 6+ months","No running until surgeon cleared","Brace required outdoors first 3 months"],weightBearing:"Partial wks 1-2, Full wks 3-4",keyRisk:"Re-tear from returning too soon"},
+    { id:"tkr",label:"Total Knee Replacement",icon:"🔩",desc:"Full knee joint replacement",precautions:["No kneeling for 3-6 months","Avoid high-impact activities long-term","Use walker until cleared","Watch for blood clot signs: swelling, warmth, redness"],weightBearing:"Full weight bearing usually day 1-2",keyRisk:"Blood clot, stiffness if PT delayed"},
+    { id:"meniscus",label:"Meniscus Repair",icon:"🌙",desc:"Meniscus tear repair or removal",precautions:["No weight bearing 4-6 weeks if repaired (not removed)","No deep squatting below 90 degrees for 3 months","Avoid twisting or pivoting","Swimming OK early - no breaststroke kick"],weightBearing:"Non-weight bearing (repair) or immediate (removal)",keyRisk:"Re-tear with premature loading"},
+    { id:"patella",label:"Patella / Kneecap Surgery",icon:"🎯",desc:"Patellar tendon, MPFL, or realignment",precautions:["Avoid open-chain quad exercises early","No resisted knee extension until week 8-12","Stairs with rail only for 4 weeks","Ice after every session"],weightBearing:"Partial to full over 4-6 weeks",keyRisk:"Patella alta or re-dislocation"},
+  ],
+  hip: [
+    { id:"thr",label:"Total Hip Replacement",icon:"🔩",desc:"Full hip joint replacement",precautions:["Do NOT bend hip past 90 degrees","Do NOT cross legs or ankles","Do NOT turn toes inward","Raised toilet seat required","No low chairs for 6-12 weeks"],weightBearing:"Usually full weight bearing day 1-2 with walker",keyRisk:"Hip dislocation - precautions essential"},
+    { id:"labrum",label:"Hip Labral Repair",icon:"🌙",desc:"Hip labrum repair via arthroscopy",precautions:["Non-weight bearing 2-4 weeks","Avoid hip rotation and extension early","No prolonged sitting week 1-2","Crutches required 4-6 weeks"],weightBearing:"Non-weight bearing to toe-touch 4 weeks",keyRisk:"Re-tear from early loading"},
+    { id:"arthroscopy",label:"Hip Arthroscopy",icon:"🔍",desc:"Minimally invasive hip procedure",precautions:["Limited weight bearing 2-4 weeks","Avoid extreme hip positions","No impact activity for 3 months","Gentle ROM only first 2 weeks"],weightBearing:"Partial for 2-4 weeks",keyRisk:"Avascular necrosis with aggressive early loading"},
+    { id:"fracture",label:"Hip Fracture Repair",icon:"⚠️",desc:"ORIF or hemiarthroplasty after fracture",precautions:["Strict weight bearing per surgeon only","Fall prevention critical","No independent walking without PT clearance","Watch for DVT signs daily"],weightBearing:"Varies - follow surgeon exactly",keyRisk:"Fall and re-fracture, DVT"},
+  ],
+  shoulder: [
+    { id:"rotator",label:"Rotator Cuff Repair",icon:"💪",desc:"Supraspinatus or multi-tendon repair",precautions:["Sling required 4-6 weeks including sleep","No active shoulder movement first 4-6 weeks","Nothing heavier than a cup for 3 months","No reaching behind your back early on"],weightBearing:"N/A",keyRisk:"Re-tear with early active use"},
+    { id:"slap",label:"Labrum / SLAP Repair",icon:"🌙",desc:"Shoulder labrum or SLAP repair",precautions:["Sling 4-6 weeks","No external rotation past neutral for 6 weeks","No overhead activity for 3 months","No throwing for 6-12 months"],weightBearing:"N/A",keyRisk:"Re-tear from external rotation"},
+    { id:"replacement",label:"Shoulder Replacement",icon:"🔩",desc:"Total or reverse shoulder arthroplasty",precautions:["No lifting over 1-2 lbs for 6 weeks","No pushing through arm","Sling 4-6 weeks","Lifetime heavy lifting restriction for total replacement"],weightBearing:"No pushing through arm",keyRisk:"Dislocation, component loosening"},
+    { id:"dislocation",label:"Shoulder Dislocation",icon:"⚡",desc:"Post-dislocation rehab or Bankart repair",precautions:["No external rotation past 0 degrees for 6 weeks if repaired","Avoid arm behind back","No contact sports for 3-6 months","Sling 3-4 weeks if surgically repaired"],weightBearing:"N/A",keyRisk:"Re-dislocation - most common recurrence"},
+  ],
+  back: [
+    { id:"discectomy",label:"Discectomy / Microdiscectomy",icon:"✂️",desc:"Herniated disc material removal",precautions:["No bending lifting or twisting for 2-4 weeks","No sitting more than 20-30 min initially","Walking is the best early exercise","No lifting over 5 lbs for 6 weeks"],weightBearing:"Full",keyRisk:"Re-herniation from early flexion loading"},
+    { id:"fusion",label:"Spinal Fusion",icon:"🔩",desc:"Lumbar or cervical vertebrae fusion",precautions:["No bending lifting or twisting for 3-6 months","No impact for 6-12 months","Wear brace as instructed","Walking starts day 1 - crucial for fusion","No smoking - impairs bone fusion"],weightBearing:"Full with brace",keyRisk:"Hardware failure, non-union from non-compliance"},
+    { id:"laminectomy",label:"Laminectomy",icon:"🔓",desc:"Lamina removal to relieve pressure",precautions:["Light activity restriction 2-4 weeks","No heavy lifting for 6 weeks","Avoid prolonged sitting","Bending and twisting caution for 4 weeks"],weightBearing:"Full",keyRisk:"Spinal instability"},
+    { id:"disc",label:"Herniated Disc (Conservative)",icon:"💊",desc:"Non-surgical disc rehab",precautions:["Avoid prolonged sitting - stand every 30 min","No heavy lifting during flare","Avoid slouched posture","Use ice or heat - whichever helps most"],weightBearing:"Full",keyRisk:"Chronic pain from poor posture"},
+  ],
+  ankle: [
+    { id:"sprain", label:"Ankle Sprain", icon:"⚡", desc:"Grade 1, 2, or 3 ligament sprain",
+      precautions:["RICE: Rest Ice Compression Elevation first 48-72 hrs","No weight bearing on grade 3 until cleared","Avoid uneven surfaces early on","Taping or bracing required for return to activity"],
+      weightBearing:"Grade 1-2: partial to full as pain allows. Grade 3: non-weight bearing", keyRisk:"Re-sprain from returning to activity too soon" },
+    { id:"ankle_fracture", label:"Ankle Fracture", icon:"🦴", desc:"Bimalleolar, trimalleolar, or fibula fracture",
+      precautions:["Strict non-weight bearing until bone healed (6-8 weeks)","Boot or cast as prescribed — wear at all times","No driving with surgical leg","Swelling management critical for healing"],
+      weightBearing:"Non-weight bearing 6-8 weeks, gradual after", keyRisk:"Malunion from premature weight bearing" },
+    { id:"achilles", label:"Achilles Repair", icon:"🔩", desc:"Achilles tendon surgical repair",
+      precautions:["Non-weight bearing 6-8 weeks minimum","Equinus cast or boot in plantarflexion initially","No active push-off for 12 weeks","No running for 6+ months"],
+      weightBearing:"Non-weight bearing 6-8 weeks", keyRisk:"Re-rupture — most serious complication" },
+    { id:"plantar", label:"Plantar Fasciitis", icon:"💊", desc:"Conservative plantar fascia rehab",
+      precautions:["No barefoot walking on hard floors","Supportive footwear at all times including at home","Avoid prolonged standing early on","Morning stretching before first steps is essential"],
+      weightBearing:"Full but with support", keyRisk:"Chronic pain from poor footwear and skipping stretching" },
+  ],
+  elbow: [
+    { id:"tennis_elbow", label:"Tennis Elbow (Lateral)", icon:"🎾", desc:"Lateral epicondylitis — conservative or post-procedure",
+      precautions:["Avoid gripping activities during acute phase","No heavy lifting for 6-8 weeks","Counterforce brace during activity","Ice after any aggravating activity"],
+      weightBearing:"N/A", keyRisk:"Chronic tendinopathy from not modifying activity" },
+    { id:"golfers_elbow", label:"Golfer's Elbow (Medial)", icon:"⛳", desc:"Medial epicondylitis rehab",
+      precautions:["Avoid repetitive wrist flexion early","No heavy gripping for 6-8 weeks","Brace during activity","Gradual return to sport — minimum 3 months"],
+      weightBearing:"N/A", keyRisk:"Medial nerve involvement if ignored" },
+    { id:"elbow_fracture", label:"Elbow Fracture", icon:"🦴", desc:"Radial head or olecranon fracture",
+      precautions:["Sling or cast as prescribed","No weight bearing through arm","Gentle ROM as soon as cleared — stiffness is major risk","No lifting until bone healed"],
+      weightBearing:"N/A — no pushing through arm", keyRisk:"Stiffness and loss of extension if immobilized too long" },
+    { id:"wrist_fracture", label:"Wrist Fracture", icon:"✋", desc:"Distal radius or scaphoid fracture",
+      precautions:["Cast or splint for 4-8 weeks","No weight bearing through wrist","Finger and shoulder exercises during cast period","Scaphoid fractures need extra time — poor blood supply"],
+      weightBearing:"N/A", keyRisk:"Non-union (especially scaphoid), stiffness" },
+  ],
+  calf: [
+    { id:"calf_tear", label:"Calf Muscle Tear", icon:"💥", desc:"Gastrocnemius or soleus tear",
+      precautions:["RICE first 48-72 hours","No pushing off or tiptoeing early","Heel raise in shoe to reduce strain","No sprinting for 8-12 weeks"],
+      weightBearing:"Partial with heel raise, progressing to full", keyRisk:"Re-tear from premature return to sport" },
+    { id:"hamstring", label:"Hamstring Strain / Tear", icon:"⚡", desc:"Grade 1-3 hamstring injury",
+      precautions:["No aggressive stretching in first 2 weeks","Avoid full sprint until strength fully restored","Eccentric loading is key to prevention of re-injury","Grade 3: no sport for 3-6 months"],
+      weightBearing:"Full (grade 1-2), partial (grade 3)", keyRisk:"Re-tear — hamstrings have very high recurrence rate" },
+    { id:"achilles_tendinopathy", label:"Achilles Tendinopathy", icon:"🦵", desc:"Chronic Achilles tendon overload",
+      precautions:["Avoid passive stretching during acute phase","Eccentric calf raises are gold standard treatment","No sudden increase in running load","Appropriate footwear essential"],
+      weightBearing:"Full", keyRisk:"Progression to full rupture if not managed" },
+  ],
+};
+
+
+const EXERCISES = {
+  knee: [
+    { id:"k1", name:"Quad Sets", phase:1, duration:5, reps:10, sets:3, rest:15, diff:"Easy", icon:"🦵",
+      muscles:["Quadriceps"], benefit:"Activates quads without joint stress", caution:"Stop if sharp pain",
+      steps:["Lie flat on your back","Press back of knee firmly into surface","Feel quad tighten, hold 5 sec","Slowly release and breathe"] },
+    { id:"k2", name:"Heel Slides", phase:1, duration:3, reps:15, sets:2, rest:20, diff:"Easy", icon:"🛏️",
+      muscles:["Hamstrings","Knee Flexors"], benefit:"Restores knee range of motion", caution:"Only go as far as comfortable",
+      steps:["Lie on back, legs straight","Slowly slide heel toward buttocks","Bend knee as far as pain allows","Slide back slowly"] },
+    { id:"k3", name:"Straight Leg Raise", phase:1, duration:2, reps:10, sets:3, rest:20, diff:"Moderate", icon:"⬆️",
+      muscles:["Quadriceps","Hip Flexors"], benefit:"Builds quad strength safely", caution:"Keep core braced, no swinging",
+      steps:["Tighten quad first","Keep knee locked straight","Raise leg to 45 degrees, hold 2 sec","Lower slowly"] },
+    { id:"k4", name:"Mini Squats", phase:2, duration:3, reps:10, sets:3, rest:30, diff:"Moderate", icon:"🏋️",
+      muscles:["Quads","Glutes"], benefit:"Functional strength with low joint stress", caution:"Knees track over toes",
+      steps:["Stand feet shoulder-width apart","Hold support if needed","Bend knees to only 30 degrees","Hold 3 sec, push through heels"] },
+    { id:"k5", name:"Step-Ups", phase:3, duration:2, reps:10, sets:3, rest:30, diff:"Hard", icon:"🪜",
+      muscles:["Quads","Glutes","Calves"], benefit:"Full functional lower body strength", caution:"Use railing, control descent",
+      steps:["Stand in front of a low step","Step up with surgical leg first","Bring other foot up","Step down, surgical leg last"] },
+  ],
+  hip: [
+    { id:"h1", name:"Ankle Pumps", phase:1, duration:1, reps:20, sets:3, rest:10, diff:"Easy", icon:"🦶",
+      muscles:["Calves","Ankle"], benefit:"Boosts circulation, prevents clots", caution:"Gentle and rhythmic",
+      steps:["Lie flat on back","Flex foot, pull toes toward you","Point foot away","Alternate in slow rhythm"] },
+    { id:"h2", name:"Glute Sets", phase:1, duration:5, reps:10, sets:3, rest:15, diff:"Easy", icon:"💆",
+      muscles:["Gluteus Maximus"], benefit:"Activates key hip stabilizers", caution:"Breathe normally throughout",
+      steps:["Lie flat, legs straight","Squeeze both glutes firmly together","Hold for 5 seconds","Release fully before next rep"] },
+    { id:"h3", name:"Hip Abduction", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"↔️",
+      muscles:["Gluteus Medius"], benefit:"Strengthens hip stabilizers for walking", caution:"Keep toes pointing up",
+      steps:["Lie on back, legs straight","Slide surgical leg out to side","Keep toes pointing upward","Slide back to center"] },
+    { id:"h4", name:"Supported Standing", phase:2, duration:30, reps:1, sets:3, rest:30, diff:"Moderate", icon:"🧍",
+      muscles:["Hip Stabilizers","Core"], benefit:"Weight-bearing tolerance and balance", caution:"Always have support nearby",
+      steps:["Stand at counter or rail","Hold lightly for balance","Gently shift weight side to side","Focus on controlled transfer"] },
+  ],
+  shoulder: [
+    { id:"s1", name:"Pendulum Swings", phase:1, duration:60, reps:20, sets:2, rest:15, diff:"Easy", icon:"⏱️",
+      muscles:["Shoulder Joint","Rotator Cuff"], benefit:"Gentle distraction and mobility", caution:"Use gravity only, not muscle",
+      steps:["Lean forward, support good arm on table","Let surgical arm hang freely","Use body to create small circles","Gradually widen, stay relaxed"] },
+    { id:"s2", name:"Elbow Flexion", phase:1, duration:3, reps:15, sets:3, rest:10, diff:"Easy", icon:"💪",
+      muscles:["Biceps","Triceps"], benefit:"Maintains elbow mobility", caution:"Upper arm stays at side",
+      steps:["Sit or stand upright","Keep upper arm against your side","Bend elbow fully","Straighten slowly"] },
+    { id:"s3", name:"Shoulder Blade Squeeze", phase:2, duration:5, reps:10, sets:3, rest:20, diff:"Moderate", icon:"🎯",
+      muscles:["Rhomboids","Lower Trapezius"], benefit:"Restores postural muscle activation", caution:"Squeeze back, not up",
+      steps:["Sit tall, arms relaxed","Pull shoulder blades together and down","Hold 5 sec","Release completely before repeating"] },
+    { id:"s4", name:"Assisted Forward Flexion", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"⬆️",
+      muscles:["Anterior Deltoid","Rotator Cuff"], benefit:"Gradually restores overhead range", caution:"Pain-free range only",
+      steps:["Use good arm or cane to assist","Raise surgical arm forward slowly","Guide to comfortable height","Lower with control"] },
+  ],
+  back: [
+    { id:"b1", name:"Diaphragmatic Breathing", phase:1, duration:5, reps:10, sets:2, rest:10, diff:"Easy", icon:"🫁",
+      muscles:["Diaphragm","Deep Core"], benefit:"Pain modulation and core foundation", caution:"Slow and controlled",
+      steps:["Lie comfortably on back","One hand on belly, one on chest","Breathe in, belly rises, chest stays still","Breathe out slowly"] },
+    { id:"b2", name:"Knee to Chest", phase:1, duration:15, reps:8, sets:2, rest:15, diff:"Easy", icon:"🤸",
+      muscles:["Lumbar Extensors","Glutes"], benefit:"Decompresses lumbar discs", caution:"Keep back flat, never force",
+      steps:["Lie on back, knees bent","Bring one knee toward chest","Clasp hands behind knee","Hold 15 sec, breathe and relax"] },
+    { id:"b3", name:"Pelvic Tilts", phase:1, duration:5, reps:10, sets:3, rest:15, diff:"Easy", icon:"🔄",
+      muscles:["Transverse Abdominis"], benefit:"Core activation without spinal load", caution:"Exhale on tilt",
+      steps:["Lie on back, knees bent, feet flat","Breathe in to prepare","Exhale, flatten lower back into surface","Hold 5 sec, inhale to release"] },
+    { id:"b4", name:"Bird Dog", phase:2, duration:3, reps:8, sets:3, rest:20, diff:"Moderate", icon:"🐕",
+      muscles:["Multifidus","Glutes","Core"], benefit:"Spinal stability without compression", caution:"Keep hips level, move slow",
+      steps:["Start on hands and knees","Extend opposite arm and leg","Imagine a glass of water on your back","Hold 3 sec, return, switch sides"] },
+    { id:"b5", name:"Bridges", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"🌉",
+      muscles:["Glutes","Hamstrings","Core"], benefit:"Posterior chain activation safely", caution:"No hyperextending lower back",
+      steps:["Lie on back, knees bent, feet flat","Arms by sides, palms down","Drive through heels, lift hips","Squeeze glutes at top, lower slowly"] },
+  ],
+
+  sprain: [
+    { id:"sp1", name:"Ankle Pumps", phase:1, duration:1, reps:20, sets:4, rest:10, diff:"Easy", icon:"🦶", muscles:["Calves","Ankle"], benefit:"Reduces swelling and maintains circulation", caution:"Gentle and rhythmic — no forcing", steps:["Sit or lie down","Flex foot toward you","Point foot away","Repeat rhythmically — do every waking hour"] },
+    { id:"sp2", name:"Ankle Alphabet", phase:1, duration:30, reps:1, sets:3, rest:20, diff:"Easy", icon:"🔡", muscles:["Ankle Stabilizers"], benefit:"Restores full ankle range of motion", caution:"Pain-free range only", steps:["Sit with leg slightly raised","Use your big toe as a pen","Trace the alphabet A through Z","Move only the ankle — keep leg still"] },
+    { id:"sp3", name:"Towel Calf Stretch", phase:1, duration:30, reps:5, sets:2, rest:15, diff:"Easy", icon:"🧘", muscles:["Gastrocnemius","Soleus"], benefit:"Restores ankle dorsiflexion range", caution:"Gentle pull — no sharp pain", steps:["Sit with leg straight","Loop towel around foot","Gently pull toes toward you","Hold 30 sec — feel calf stretch"] },
+    { id:"sp4", name:"Single Leg Balance", phase:2, duration:30, reps:1, sets:3, rest:30, diff:"Moderate", icon:"🧍", muscles:["Ankle Stabilizers","Proprioceptors"], benefit:"Restores balance — critical for preventing re-sprain", caution:"Stand near wall for safety", steps:["Stand near a wall for safety","Lift non-injured foot slightly","Balance on injured ankle","Hold 30 sec — progress to eyes closed"] },
+    { id:"sp5", name:"Calf Raises", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"⬆️", muscles:["Gastrocnemius","Soleus"], benefit:"Strengthens ankle for walking and stairs", caution:"Hold support if needed — no pain at top", steps:["Stand at counter hold lightly","Rise up onto both tiptoes","Hold 2 sec at top","Lower slowly — 3 seconds down"] },
+    { id:"sp6", name:"Resistance Band Eversion", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"↔️", muscles:["Peroneals"], benefit:"Strengthens the muscles that prevent re-sprain", caution:"Controlled movement — no snapping", steps:["Sit with band around foot","Anchor band to fixed point","Turn sole of foot outward against resistance","Return slowly"] },
+    { id:"sp7", name:"Single Leg Calf Raise", phase:3, duration:3, reps:12, sets:3, rest:30, diff:"Hard", icon:"🦶", muscles:["Gastrocnemius","Soleus"], benefit:"Full strength restoration for return to activity", caution:"Only when pain free on two legs", steps:["Stand on injured foot only","Rise onto tiptoe fully","Hold 2 sec","Lower with full control — 4 seconds down"] },
+  ],
+  ankle_fracture: [
+    { id:"af1", name:"Ankle Pumps", phase:1, duration:1, reps:20, sets:5, rest:10, diff:"Easy", icon:"🦶", muscles:["Calves"], benefit:"Critical circulation and clot prevention in boot/cast", caution:"Do every waking hour", steps:["In boot or cast","Flex foot toward you","Point away","Repeat frequently all day"] },
+    { id:"af2", name:"Knee and Hip Exercises", phase:1, duration:3, reps:10, sets:3, rest:15, diff:"Easy", icon:"🦵", muscles:["Quads","Glutes"], benefit:"Maintains leg strength during non-weight bearing", caution:"Keep foot elevated after exercise", steps:["Seated or lying","Tighten quad — lift leg straight","Hip abduction lying","Glute squeezes — maintain overall leg strength"] },
+    { id:"af3", name:"Partial Weight Bearing Practice", phase:2, duration:5, reps:1, sets:3, rest:30, diff:"Moderate", icon:"🧍", muscles:["Full Leg","Ankle"], benefit:"Gradual bone loading stimulus", caution:"Per surgeon instructions only — never rush this", steps:["Boot on — crutches in hand","Place foot flat on ground","Apply only prescribed amount of weight","Build up time over days per surgeon guidance"] },
+    { id:"af4", name:"Ankle ROM in Boot-Free Time", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"🔄", muscles:["Ankle Stabilizers"], benefit:"Prevents stiffness during healing phase", caution:"Only when surgeon allows boot removal for exercises", steps:["Remove boot as directed","Ankle pumps and alphabet","Gentle circles each direction","Replace boot immediately after"] },
+    { id:"af5", name:"Calf Raises", phase:3, duration:3, reps:15, sets:3, rest:20, diff:"Hard", icon:"⬆️", muscles:["Gastrocnemius","Soleus"], benefit:"Restores push-off strength for walking", caution:"Both legs first — only when fully weight bearing", steps:["Hold counter for balance","Rise onto both tiptoes","Hold 2 sec at top","Lower slowly — 3 sec down"] },
+  ],
+  achilles: [
+    { id:"ac1", name:"Ankle Pumps in Boot", phase:1, duration:1, reps:20, sets:4, rest:10, diff:"Easy", icon:"🦶", muscles:["Ankle"], benefit:"Circulation in non-weight bearing phase", caution:"Do not plantarflex past boot position", steps:["In boot — do not remove","Flex foot toward you gently","Point away gently","Repeat rhythmically"] },
+    { id:"ac2", name:"Knee Bends in Boot", phase:1, duration:3, reps:10, sets:3, rest:15, diff:"Easy", icon:"🦵", muscles:["Quads","Hamstrings"], benefit:"Maintains leg strength without loading Achilles", caution:"Boot on at all times", steps:["Seated in chair","Bend and straighten knee","Tighten quad with each straighten","Alternate legs"] },
+    { id:"ac3", name:"Seated Calf Raises", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"🪑", muscles:["Soleus"], benefit:"Soleus loading — safest early Achilles exercise", caution:"Only when cleared — seated reduces load significantly", steps:["Seated with knees bent 90 degrees","Rise up onto toes from sitting","Hold 2 sec","Lower slowly — soleus works harder seated than standing"] },
+    { id:"ac4", name:"Double Leg Calf Raise", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"⬆️", muscles:["Gastrocnemius","Soleus"], benefit:"Progressive Achilles loading", caution:"No pain at top of range — ease back if sore next day", steps:["Stand holding counter","Rise onto both tiptoes","Hold 2 sec at top","Lower 3-4 seconds — control is everything"] },
+    { id:"ac5", name:"Eccentric Calf Raise", phase:3, duration:4, reps:15, sets:3, rest:30, diff:"Hard", icon:"⬇️", muscles:["Gastrocnemius","Soleus","Achilles Tendon"], benefit:"Gold standard Achilles tendon strengthening", caution:"Rise on both feet — lower on surgical foot only", steps:["Rise up on both feet","Lift non-surgical foot","Lower slowly on surgical foot only — 4 sec","Rise again using both feet — repeat"] },
+  ],
+  plantar: [
+    { id:"pl1", name:"Plantar Fascia Stretch", phase:1, duration:30, reps:10, sets:3, rest:10, diff:"Easy", icon:"🦶", muscles:["Plantar Fascia"], benefit:"Most important plantar fasciitis exercise — do before first steps", caution:"Do this before getting out of bed every morning", steps:["Sitting on bed before standing","Cross injured foot over other knee","Pull toes back toward shin","Hold 30 sec — feel stretch along arch"] },
+    { id:"pl2", name:"Calf Stretch Standing", phase:1, duration:30, reps:5, sets:3, rest:10, diff:"Easy", icon:"🧘", muscles:["Gastrocnemius","Soleus"], benefit:"Tight calves are the #1 cause of plantar fasciitis", caution:"Both straight and bent knee versions needed", steps:["Stand at wall arms forward","Step one foot back — keep heel flat","Lean forward until calf stretches","Hold 30 sec — then bend back knee slightly for soleus"] },
+    { id:"pl3", name:"Towel Scrunches", phase:1, duration:30, reps:1, sets:3, rest:20, diff:"Easy", icon:"🧻", muscles:["Intrinsic Foot Muscles"], benefit:"Strengthens foot arch muscles", caution:"Stop if cramping", steps:["Sit with towel on floor","Use toes to scrunch towel toward you","Release and repeat","Progress to picking up marbles with toes"] },
+    { id:"pl4", name:"Single Leg Calf Raise", phase:2, duration:3, reps:12, sets:3, rest:20, diff:"Moderate", icon:"⬆️", muscles:["Calf","Plantar Fascia"], benefit:"Strengthens the full foot-ankle-calf chain", caution:"Only when acute pain has settled", steps:["Stand on injured foot","Hold counter lightly","Rise onto tiptoe","Lower slowly — 3 sec down"] },
+    { id:"pl5", name:"Foot Doming", phase:2, duration:5, reps:12, sets:3, rest:15, diff:"Moderate", icon:"🏔️", muscles:["Intrinsic Foot Muscles"], benefit:"Builds arch strength — reduces fascial load", caution:"Keep toes long — do not curl them", steps:["Seated or standing","Keep toes flat on floor","Shorten foot by pulling arch up","Hold 5 sec — toes stay straight throughout"] },
+  ],
+  tennis_elbow: [
+    { id:"te1", name:"Wrist Extension Stretch", phase:1, duration:30, reps:5, sets:3, rest:15, diff:"Easy", icon:"✋", muscles:["Wrist Extensors","ECRB"], benefit:"Reduces tension on lateral epicondyle", caution:"Gentle — no sharp pain", steps:["Arm straight in front","Palm facing down","Use other hand to bend wrist down","Hold 30 sec — feel stretch on back of forearm"] },
+    { id:"te2", name:"Forearm Massage (Self)", phase:1, duration:60, reps:1, sets:2, rest:30, diff:"Easy", icon:"💆", muscles:["Wrist Extensors"], benefit:"Reduces muscle tension contributing to pain", caution:"Firm but not painful pressure", steps:["Cross arms — use thumb of good hand","Find tender spot in forearm muscle belly","Apply firm circular pressure","Work along the muscle belly — not the tendon itself"] },
+    { id:"te3", name:"Wrist Flexion and Extension", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"🔄", muscles:["Wrist Extensors","Flexors"], benefit:"Gentle tendon loading for healing", caution:"Pain-free range only — stop if pain over 4/10", steps:["Forearm supported on table, hand over edge","Move wrist up and down through comfortable range","Slow and controlled — 3 sec each way","No weight to start"] },
+    { id:"te4", name:"Eccentric Wrist Extension", phase:2, duration:4, reps:15, sets:3, rest:20, diff:"Moderate", icon:"⬇️", muscles:["ECRB","Wrist Extensors"], benefit:"Gold standard tendon rehab exercise", caution:"Mild discomfort OK — sharp pain stop immediately", steps:["Forearm on table palm down","Use good hand to lift wrist up","Remove good hand","Lower wrist slowly 4 sec using injured side only"] },
+    { id:"te5", name:"Grip Strengthening", phase:3, duration:3, reps:15, sets:3, rest:20, diff:"Hard", icon:"✊", muscles:["Forearm","Grip"], benefit:"Functional return to sport and work activities", caution:"Only when pain has settled to 2/10 or less", steps:["Squeeze soft ball or putty","Hold 3 sec","Release fully","Progress resistance gradually over weeks"] },
+  ],
+  golfers_elbow: [
+    { id:"ge1", name:"Wrist Flexion Stretch", phase:1, duration:30, reps:5, sets:3, rest:15, diff:"Easy", icon:"✋", muscles:["Wrist Flexors","FCR"], benefit:"Reduces tension on medial epicondyle", caution:"Gentle — arm straight", steps:["Arm straight in front","Palm facing up","Use other hand to bend wrist back","Hold 30 sec — feel stretch on inner forearm"] },
+    { id:"ge2", name:"Forearm Pronation and Supination", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"🔄", muscles:["Pronators","Supinators"], benefit:"Restores forearm rotation range", caution:"Pain-free range — use light weight only when pain free", steps:["Elbow at 90 degrees at side","Rotate palm up then palm down","Slow and controlled","Progress to holding light hammer for load"] },
+    { id:"ge3", name:"Eccentric Wrist Flexion", phase:2, duration:4, reps:15, sets:3, rest:20, diff:"Moderate", icon:"⬇️", muscles:["Wrist Flexors"], benefit:"Tendon remodeling through eccentric loading", caution:"Mild ache OK — stop if sharp pain", steps:["Forearm on table palm up","Use good hand to lift wrist up","Remove good hand","Lower wrist slowly 4 sec — resisting with injured side"] },
+  ],
+  elbow_fracture: [
+    { id:"ef1", name:"Shoulder and Wrist ROM", phase:1, duration:3, reps:10, sets:3, rest:15, diff:"Easy", icon:"💪", muscles:["Shoulder","Wrist"], benefit:"Maintains adjacent joint mobility during healing", caution:"Do not move elbow outside prescribed range", steps:["Keep elbow in prescribed position","Move shoulder in all directions","Flex and extend wrist gently","Finger tendon glides — full fist to flat hand"] },
+    { id:"ef2", name:"Elbow ROM — Gentle", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"🔄", muscles:["Biceps","Triceps"], benefit:"Stiffness is major complication — start ROM as soon as cleared", caution:"Pain-free range only — gravity-assisted preferred", steps:["Let gravity assist — let arm straighten","Bend to comfortable limit","Hold 5 sec at end range","Active range first — stretching later"] },
+    { id:"ef3", name:"Forearm Rotation", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"↔️", muscles:["Pronators","Supinators"], benefit:"Forearm rotation often most restricted after elbow fracture", caution:"No forcing — stiffness improves gradually", steps:["Elbow at 90 degrees at side","Rotate palm up","Rotate palm down","Gentle sustained pressure at end range"] },
+  ],
+  wrist_fracture: [
+    { id:"wf1", name:"Finger Tendon Glides", phase:1, duration:3, reps:10, sets:4, rest:10, diff:"Easy", icon:"✋", muscles:["Finger Flexors","Extensors"], benefit:"Prevents tendon adhesions during cast period", caution:"Do every hour in cast", steps:["Fingers straight","Make a hook fist — bend middle joints only","Make a full fist","Straighten fully — repeat cycle"] },
+    { id:"wf2", name:"Shoulder and Elbow Exercises", phase:1, duration:3, reps:10, sets:3, rest:15, diff:"Easy", icon:"💪", muscles:["Shoulder","Elbow"], benefit:"Maintains arm strength during cast period", caution:"Keep wrist immobilized", steps:["Shoulder circles forward and back","Elbow bend and straighten","Shoulder press up without weight","Maintain full shoulder range"] },
+    { id:"wf3", name:"Wrist ROM After Cast", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"🔄", muscles:["Wrist Flexors","Extensors"], benefit:"Restores wrist movement lost during immobilization", caution:"Expected to be stiff — gentle and persistent wins", steps:["Forearm supported on table","Move wrist forward and back","Side to side movement","Gentle circular motion — pain-free range only"] },
+    { id:"wf4", name:"Grip Strengthening", phase:2, duration:3, reps:15, sets:3, rest:20, diff:"Moderate", icon:"✊", muscles:["Forearm","Grip"], benefit:"Restores functional hand strength", caution:"Scaphoid fractures need longer — confirm healed on X-ray first", steps:["Squeeze soft putty or ball","Hold 3 sec","Release fully","Progress resistance as pain allows"] },
+  ],
+  calf_tear: [
+    { id:"ct1", name:"RICE Protocol Exercises", phase:1, duration:1, reps:10, sets:3, rest:10, diff:"Easy", icon:"🧊", muscles:["Ankle"], benefit:"Maintains circulation without stressing tear", caution:"Absolutely no calf loading for first 2 weeks", steps:["Ankle pumps only — no calf raising","Lie with leg elevated above heart level","Ice 20 min every 2 hours","Compression stocking if prescribed"] },
+    { id:"ct2", name:"Gentle Knee Flexion", phase:1, duration:3, reps:10, sets:3, rest:20, diff:"Easy", icon:"🦵", muscles:["Hamstrings","Knee"], benefit:"Maintains knee mobility without loading calf", caution:"No active plantar flexion", steps:["Lying face down","Slowly bend knee toward buttocks","Hold 3 sec","Lower slowly — do not push off"] },
+    { id:"ct3", name:"Supported Calf Raise", phase:2, duration:3, reps:10, sets:3, rest:20, diff:"Moderate", icon:"⬆️", muscles:["Gastrocnemius","Soleus"], benefit:"Graded calf loading as tissue heals", caution:"No pain above 3/10 — back off if next day sore", steps:["Hold counter firmly with both hands","Transfer most weight to good leg","Gentle rise both heels together","Lower slowly — more weight on good leg initially"] },
+    { id:"ct4", name:"Single Leg Calf Raise", phase:3, duration:3, reps:15, sets:3, rest:30, diff:"Hard", icon:"🦶", muscles:["Gastrocnemius","Soleus"], benefit:"Full strength restoration — key milestone before sport return", caution:"Must achieve 25 reps pain-free before return to running", steps:["Stand on injured leg only","Rise onto tiptoe fully","Hold 2 sec at top","Lower slowly — 4 sec down — control is everything"] },
+  ],
+  hamstring: [
+    { id:"hs1", name:"Prone Knee Bend", phase:1, duration:3, reps:10, sets:3, rest:20, diff:"Easy", icon:"🛏️", muscles:["Hamstrings"], benefit:"Gentle hamstring activation without stretch stress", caution:"No aggressive range — just comfortable bend", steps:["Lie face down","Slowly bend knee toward buttocks","Stop at first resistance — do not force","Hold 3 sec lower slowly"] },
+    { id:"hs2", name:"Isometric Hamstring", phase:1, duration:5, reps:10, sets:3, rest:15, diff:"Easy", icon:"💪", muscles:["Hamstrings"], benefit:"Activates without lengthening — safe in acute phase", caution:"No pain above 3/10", steps:["Lie on back knee bent 90 degrees","Press heel into floor firmly","Hold 5 sec — feel hamstring contract","Release fully"] },
+    { id:"hs3", name:"Nordic Curl (Assisted)", phase:2, duration:4, reps:6, sets:3, rest:60, diff:"Moderate", icon:"🐕", muscles:["Hamstrings"], benefit:"Eccentric loading — best evidence for preventing re-tear", caution:"One of the most demanding exercises — progress very slowly", steps:["Kneel with feet anchored under something heavy","Slowly lower body forward using hands to slow descent","Lower as far as controlled","Push back up with hands — hamstrings pull you back"] },
+    { id:"hs4", name:"Romanian Deadlift", phase:3, duration:3, reps:10, sets:3, rest:45, diff:"Hard", icon:"🏋️", muscles:["Hamstrings","Glutes"], benefit:"Functional loaded hamstring strength for return to sport", caution:"Start with bodyweight only — form is everything", steps:["Stand, slight knee bend throughout","Hinge at hips pushing them back","Lower hands toward floor — back stays straight","Drive hips forward to return"] },
+  ],
+  achilles_tendinopathy: [
+    { id:"at1", name:"Isometric Calf Hold", phase:1, duration:45, reps:5, sets:1, rest:120, diff:"Easy", icon:"💪", muscles:["Calf","Achilles Tendon"], benefit:"Pain relief through isometric loading — best for acute pain", caution:"Pain should drop during hold — if it increases stop", steps:["Stand on step or flat — both feet","Rise onto tiptoes","Hold position for 45 seconds","Lower slowly — rest 2 minutes between reps"] },
+    { id:"at2", name:"Eccentric Calf Raise", phase:2, duration:4, reps:15, sets:3, rest:30, diff:"Moderate", icon:"⬇️", muscles:["Gastrocnemius","Soleus","Achilles"], benefit:"Most evidence-based treatment for Achilles tendinopathy", caution:"Mild ache during is OK and expected — sharp pain stop", steps:["Stand on step edge — both feet up","Lift good foot off","Lower on injured foot slowly — 4 sec","Rise with both feet — repeat"] },
+    { id:"at3", name:"Soleus Eccentric (Bent Knee)", phase:2, duration:4, reps:15, sets:3, rest:30, diff:"Moderate", icon:"⬇️", muscles:["Soleus","Achilles"], benefit:"Targets soleus — often undertreated in Achilles issues", caution:"Same ache rules — not sharp pain", steps:["Stand on step edge knees bent 30 degrees","Keep knees bent throughout","Lower on injured foot slowly — 4 sec","Rise with both feet keeping knees bent"] },
+    { id:"at4", name:"Single Leg Calf Raise", phase:3, duration:3, reps:15, sets:3, rest:30, diff:"Hard", icon:"🦶", muscles:["Full Calf Chain"], benefit:"Functional strength restoration", caution:"Only after 12 weeks of eccentric program", steps:["Stand on injured foot only — step edge","Rise to tiptoe fully","Hold 2 sec","Lower slowly — 3 sec — full control"] },
+  ],
+};
+
+const WEEKLY_PLAN = {
+  1: [
+    { label:"Day 1", focus:"Gentle Activation", intensity:"Low",      exCount:2, note:"First session — go very easy, stop if sharp pain." },
+    { label:"Day 2", focus:"Rest & Ice",         intensity:"Rest",     exCount:0, note:"Active rest. Ice 20 min every 2 hrs if still swollen." },
+    { label:"Day 3", focus:"Range of Motion",    intensity:"Low",      exCount:3, note:"Slow controlled movement through comfortable range only." },
+    { label:"Day 4", focus:"Rest & Breathwork",  intensity:"Rest",     exCount:1, note:"Breathing exercises only. Allow tissue healing." },
+    { label:"Day 5", focus:"Strength Basics",    intensity:"Low",      exCount:3, note:"Add one set if pain stays under 4 out of 10." },
+    { label:"Day 6", focus:"Active Recovery",    intensity:"Low",      exCount:2, note:"Gentle movement. Stay within pain-free range." },
+    { label:"Day 7", focus:"Full Rest",           intensity:"Rest",     exCount:0, note:"Complete rest. Reflect on your week." },
+  ],
+  2: [
+    { label:"Day 1", focus:"Strength Focus",     intensity:"Moderate", exCount:4, note:"Push into mild discomfort, not sharp pain." },
+    { label:"Day 2", focus:"Mobility + Core",    intensity:"Low",      exCount:3, note:"Prioritize range and stability today." },
+    { label:"Day 3", focus:"Full Workout",        intensity:"Moderate", exCount:5, note:"All phase exercises. Track reps completed." },
+    { label:"Day 4", focus:"Active Rest",         intensity:"Low",      exCount:2, note:"Light movement only. Walking encouraged if cleared." },
+    { label:"Day 5", focus:"Strength + Balance", intensity:"Moderate", exCount:4, note:"Add balance challenge where comfortable." },
+    { label:"Day 6", focus:"Endurance Build",    intensity:"Moderate", exCount:5, note:"Focus on completing all sets." },
+    { label:"Day 7", focus:"Rest",                intensity:"Rest",     exCount:0, note:"Weekly rest. Assess your pain trends." },
+  ],
+  3: [
+    { label:"Day 1", focus:"Functional Strength",intensity:"High",     exCount:5, note:"Full intensity. Focus on form under load." },
+    { label:"Day 2", focus:"Cardio + Mobility",  intensity:"Moderate", exCount:3, note:"Light cardio if cleared. Full stretching." },
+    { label:"Day 3", focus:"Power and Control",  intensity:"High",     exCount:5, note:"Slow 4-second lowering phase." },
+    { label:"Day 4", focus:"Active Recovery",    intensity:"Low",      exCount:2, note:"Body needs recovery between high-intensity days." },
+    { label:"Day 5", focus:"Functional Prep",    intensity:"High",     exCount:5, note:"Simulate functional movement patterns." },
+    { label:"Day 6", focus:"Full Session",        intensity:"High",     exCount:5, note:"Final push of the week." },
+    { label:"Day 7", focus:"Rest",                intensity:"Rest",     exCount:0, note:"Weekly rest. Celebrate this week!" },
+  ],
+};
+
+const AFFIRMATIONS = [
+  "Every rep is a step toward recovery.",
+  "Your body is remarkable. Trust the process.",
+  "Small progress is still progress. Keep going!",
+  "You showed up today. That counts.",
+  "Healing takes courage. You have it.",
+  "The comeback is always stronger than the setback.",
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function useInterval(cb, delay) {
+  const saved = useRef();
+  useEffect(() => { saved.current = cb; }, [cb]);
+  useEffect(() => {
+    if (delay === null) return;
+    const id = setInterval(() => saved.current(), delay);
+    return () => clearInterval(id);
+  }, [delay]);
+}
+
+function useStorage(key, init) {
+  const [val, setVal] = useState(() => {
+    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : init; } catch { return init; }
+  });
+  const set = (v) => {
+    const next = typeof v === 'function' ? v(val) : v;
+    setVal(next);
+    try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+  };
+  return [val, set];
+}
+
+const diffColor = d => d === "Easy" ? "#3EC99A" : d === "Moderate" ? "#F5A623" : "#E85B4B";
+const intColor   = i => i === "Rest" ? "#A8C0B5" : i === "Low" ? "#3EC99A" : i === "Moderate" ? "#F5A623" : "#E85B4B";
+
+function s(style) { return style; } // passthrough for clarity
+
+function Chip({ label, color }) {
+  return React.createElement('span', {
+    className: 'chip',
+    style: { background: color + '22', color }
+  }, label);
+}
+
+function Ring({ pct, size, stroke, color, label, sublabel }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ * (1 - Math.min(pct, 100) / 100);
+  return React.createElement('div', { className: 'ring-wrap', style: { width: size, height: size } },
+    React.createElement('svg', { width: size, height: size, style: { position: 'absolute', transform: 'rotate(-90deg)' } },
+      React.createElement('circle', { cx: size/2, cy: size/2, r, fill: 'none', stroke: '#E0EDE8', strokeWidth: stroke }),
+      React.createElement('circle', { cx: size/2, cy: size/2, r, fill: 'none', stroke: color, strokeWidth: stroke,
+        strokeDasharray: circ, strokeDashoffset: offset, strokeLinecap: 'round',
+        style: { transition: 'stroke-dashoffset 0.5s ease' } })
+    ),
+    React.createElement('div', { className: 'ring-inner', style: { position: 'relative', zIndex: 1, textAlign: 'center' } },
+      React.createElement('div', { style: { fontSize: 42, fontWeight: 800, color: '#1E2D27' } }, label),
+      React.createElement('div', { style: { fontSize: 11, color: '#A8C0B5', fontWeight: 700 } }, sublabel)
+    )
+  );
+}
+
+// ── Video Demo ────────────────────────────────────────────────────────────────
+function VideoDemo({ ex, onClose }) {
+  const [frame, setFrame] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  const [stepIdx, setStepIdx] = useState(0);
+  useInterval(() => { if (playing) setFrame(f => (f + 1) % 60); }, 100);
+  const color = diffColor(ex.diff);
+  const ang = Math.sin((frame / 60) * 2 * Math.PI);
+  const lying = ["k1","k2","k3","h1","h2","b1","b2","b3"].includes(ex.id);
+
+  const svgContent = lying
+    ? React.createElement('g', { transform: 'translate(20,70)' },
+        React.createElement('line', { x1:10, y1:60, x2:170, y2:60, stroke:color, strokeWidth:1.5, strokeOpacity:0.3 }),
+        React.createElement('ellipse', { cx:60, cy:50, rx:35, ry:11, fill:color, fillOpacity:0.2, stroke:color, strokeWidth:1.5 }),
+        React.createElement('circle', { cx:18, cy:50, r:11, fill:'none', stroke:color, strokeWidth:2 }),
+        React.createElement('line', { x1:95, y1:50, x2:118, y2:50+ang*22, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:118, y1:50+ang*22, x2:128+ang*12, y2:50+ang*22+14, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:95, y1:56, x2:125, y2:60, stroke:color, strokeWidth:2, strokeLinecap:'round', strokeOpacity:0.4 })
+      )
+    : React.createElement('g', { transform: 'translate(100,10)' },
+        React.createElement('circle', { cx:0, cy:10, r:13, fill:'none', stroke:color, strokeWidth:2 }),
+        React.createElement('line', { x1:0, y1:23, x2:0, y2:65, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:0, y1:35, x2:-22+ang*8, y2:55, stroke:color, strokeWidth:2.5, strokeLinecap:'round' }),
+        React.createElement('line', { x1:0, y1:35, x2:22-ang*8, y2:55, stroke:color, strokeWidth:2.5, strokeLinecap:'round' }),
+        React.createElement('line', { x1:0, y1:65, x2:-14, y2:100+ang*10, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:-14, y1:100+ang*10, x2:-14+ang*6, y2:120, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:0, y1:65, x2:14, y2:100-ang*10, stroke:color, strokeWidth:3, strokeLinecap:'round' }),
+        React.createElement('line', { x1:14, y1:100-ang*10, x2:14-ang*6, y2:120, stroke:color, strokeWidth:3, strokeLinecap:'round' })
+      );
+
+  return React.createElement('div', { className: 'modal-overlay', onClick: onClose },
+    React.createElement('div', { className: 'modal-sheet', onClick: e => e.stopPropagation() },
+      // Video panel
+      React.createElement('div', { style: { background: 'linear-gradient(155deg,#1E2D27,#2A4038)', borderRadius: '28px 28px 0 0', padding: '28px 24px' } },
+        React.createElement('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 } },
+          React.createElement('div', null,
+            React.createElement('p', { style: { color, fontSize:11, fontWeight:700, letterSpacing:1.2, margin:'0 0 4px' } }, 'EXERCISE DEMO'),
+            React.createElement('h3', { style: { color:'white', margin:0, fontSize:22, fontFamily:'Georgia,serif' } }, ex.name)
+          ),
+          React.createElement('button', { onClick: onClose, style: { background:'rgba(255,255,255,0.15)', border:'none', color:'white', borderRadius:'50%', width:36, height:36, cursor:'pointer', fontSize:18 } }, '✕')
+        ),
+        React.createElement('div', { style: { background:'rgba(0,0,0,0.25)', borderRadius:20, padding:20, display:'flex', flexDirection:'column', alignItems:'center', gap:14 } },
+          React.createElement('svg', { width:200, height:140, viewBox:'0 0 200 140' }, svgContent),
+          React.createElement('div', { style: { display:'flex', gap:12, alignItems:'center' } },
+            React.createElement('button', { onClick: () => setPlaying(p=>!p), style: { background:color, border:'none', borderRadius:'50%', width:42, height:42, color:'white', fontSize:16, cursor:'pointer' } }, playing ? '⏸' : '▶'),
+            React.createElement('div', null,
+              React.createElement('p', { style: { color:'white', margin:0, fontSize:14, fontWeight:600 } }, ex.name),
+              React.createElement('p', { style: { color:'#A8C0B5', margin:0, fontSize:12 } }, ex.reps + ' reps x ' + ex.sets + ' sets')
+            )
+          )
+        ),
+        React.createElement('div', { style: { display:'flex', gap:8, marginTop:14, flexWrap:'wrap' } },
+          ...ex.muscles.map(m => React.createElement('span', { key:m, style: { background:'rgba(255,255,255,0.12)', color:'#A8C0B5', fontSize:12, padding:'4px 12px', borderRadius:20 } }, m))
+        )
+      ),
+      // Steps
+      React.createElement('div', { style: { padding:'22px 24px 36px' } },
+        React.createElement('h4', { style: { color:'#1E2D27', fontFamily:'Georgia,serif', fontSize:18, margin:'0 0 14px' } }, 'Step-by-Step'),
+        React.createElement('div', { style: { display:'flex', flexDirection:'column', gap:10, marginBottom:16 } },
+          ...ex.steps.map((step, i) =>
+            React.createElement('div', { key:i, onClick:()=>setStepIdx(i), style: { display:'flex', gap:12, cursor:'pointer', padding:'12px 14px', borderRadius:14,
+              background: stepIdx===i ? '#E6F9F2' : 'transparent', border: '2px solid ' + (stepIdx===i ? '#3EC99A' : 'transparent') } },
+              React.createElement('div', { style: { width:28, height:28, borderRadius:'50%', flexShrink:0, background: stepIdx===i ? '#3EC99A' : '#E8EDE9',
+                color: stepIdx===i ? 'white' : '#A8C0B5', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:700, fontSize:13 } }, i+1),
+              React.createElement('p', { style: { color: stepIdx===i ? '#27A87C' : '#4A6358', margin:0, fontSize:14, lineHeight:1.5 } }, step)
+            )
+          )
+        ),
+        React.createElement('div', { style: { background:'#FFF1EC', borderRadius:12, padding:'12px 16px', display:'flex', gap:10, alignItems:'center', marginBottom:10 } },
+          React.createElement('span', null, '⚠️'),
+          React.createElement('p', { style: { color:'#FF7B54', margin:0, fontSize:13, fontWeight:600 } }, ex.caution)
+        ),
+        React.createElement('div', { style: { background:'#E6F9F2', borderRadius:12, padding:'12px 16px', display:'flex', gap:10, alignItems:'center' } },
+          React.createElement('span', null, '✓'),
+          React.createElement('p', { style: { color:'#27A87C', margin:0, fontSize:13, fontWeight:600 } }, ex.benefit)
+        )
+      )
+    )
+  );
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+function PrecautionsPanel({ subcat }) {
+  if (!subcat) return null;
+  const e = React.createElement;
+  return e('div',{style:{background:'#FFF1EC',border:'1.5px solid #FF7B54',borderRadius:16,padding:'14px 18px',marginBottom:16}},
+    e('h4',{style:{color:'#FF7B54',fontSize:14,margin:'0 0 8px',fontWeight:700}},'Key Precautions: '+subcat.label),
+    e('ul',{style:{color:'#FF7B54',fontSize:13,paddingLeft:18,lineHeight:1.9,margin:'0 0 10px'}},
+      ...subcat.precautions.map((p,i)=>e('li',{key:i},p))
+    ),
+    e('div',{style:{display:'flex',gap:8,flexWrap:'wrap'}},
+      subcat.weightBearing&&e('span',{style:{background:'rgba(255,123,84,0.15)',color:'#FF7B54',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:12}},'Weight bearing: '+subcat.weightBearing),
+      subcat.keyRisk&&e('span',{style:{background:'rgba(255,123,84,0.15)',color:'#FF7B54',fontSize:11,fontWeight:700,padding:'3px 10px',borderRadius:12}},'Key risk: '+subcat.keyRisk)
+    )
+  );
+}
+
+function Onboarding({ onComplete, isAdding, onCancel }) {
+  const [step,setStep]=useState(0);
+  const [name,setName]=useState('');
+  const [surgery,setSurgery]=useState('');
+  const [subcat,setSubcat]=useState('');
+  const [phase,setPhase]=useState(1);
+  const [pain,setPain]=useState(3);
+  const subcats=surgery?SUBCATEGORIES[surgery]:[];
+  const chosenSubcat=subcat?subcats.find(s=>s.id===subcat):null;
+  const surgLabel=(SURGERY_TYPES.find(s=>s.id===surgery)||{}).label||'';
+  const T=5;
+  const canNext=isAdding?[true,surgery!=='',subcat!=='',true,true,true][step]:[name.trim().length>0,surgery!=='',subcat!=='',true,true,true][step];
+  const phaseOpts=[{phase:1,label:'Early Recovery',desc:'0-4 weeks post-surgery',icon:'🛏️'},{phase:2,label:'Active Rehab',desc:'4-12 weeks, building strength',icon:'🚶'},{phase:3,label:'Return to Function',desc:'12+ weeks, back to normal',icon:'🏃'}];
+  const el=React.createElement;
+  const renderStep=()=>{
+    if(step===0&&isAdding){setStep(1);return null;}
+    if(step===0)return el('div',{style:{textAlign:'center',padding:'calc(var(--safe-top) + 40px) 24px 32px'}},
+      el('div',{style:{fontSize:80,marginBottom:20}},'🌱'),
+      el('h1',{style:{fontFamily:'Georgia,serif',fontSize:32,color:'#1E2D27',marginBottom:12,lineHeight:1.2}},isAdding?'Add a New Condition':el('span',null,'Welcome to ',el('span',{style:{color:'#3EC99A'}},'RecoverWell'))),
+      el('p',{style:{color:'#4A6358',fontSize:16,lineHeight:1.7,marginBottom:36}},'Your personal PT companion — guided, gentle, and always in your corner.'),
+      el('input',{placeholder:"What's your first name?",value:name,onChange:e=>setName(e.target.value),style:{width:'100%',padding:'16px 20px',borderRadius:16,border:'2px solid '+(name?'#3EC99A':'#E0EDE8'),fontSize:16,outline:'none',background:'#F8F7F3',color:'#1E2D27'}})
+    );
+    if(step===1)return el('div',{style:{padding:'36px 24px'}},
+      el('p',{style:{color:'#3EC99A',fontSize:12,fontWeight:700,letterSpacing:1.2,marginBottom:8}},'STEP 1 OF '+T),
+      el('h2',{style:{fontFamily:'Georgia,serif',fontSize:26,color:'#1E2D27',marginBottom:6}},'Which area are you recovering from?'),
+      el('p',{style:{color:'#A8C0B5',fontSize:14,marginBottom:22}},'We will narrow this down on the next screen.'),
+      ...SURGERY_TYPES.map(s=>el('button',{key:s.id,onClick:()=>{setSurgery(s.id);setSubcat('');},style:{display:'flex',alignItems:'center',gap:16,padding:'16px 20px',borderRadius:18,width:'100%',border:'2px solid '+(surgery===s.id?'#3EC99A':'#E0EDE8'),background:surgery===s.id?'#E6F9F2':'white',cursor:'pointer',textAlign:'left',marginBottom:12}},
+        el('span',{style:{fontSize:28}},s.icon),el('div',{style:{flex:1}},el('div',{style:{fontWeight:700,color:'#1E2D27',fontSize:15}},s.label),el('div',{style:{color:'#A8C0B5',fontSize:13}},s.desc)),surgery===s.id&&el('span',{style:{color:'#3EC99A',fontSize:22}},'✓')
+      ))
+    );
+    if(step===2)return el('div',{style:{padding:'36px 24px'}},
+      el('p',{style:{color:'#3EC99A',fontSize:12,fontWeight:700,letterSpacing:1.2,marginBottom:8}},'STEP 2 OF '+T),
+      el('h2',{style:{fontFamily:'Georgia,serif',fontSize:26,color:'#1E2D27',marginBottom:4}},'What was your specific procedure?'),
+      el('div',{style:{background:'#FFF1EC',borderRadius:14,padding:'12px 16px',marginBottom:18,display:'flex',gap:10,alignItems:'center'}},el('span',null,'⚠️'),el('p',{style:{color:'#FF7B54',margin:0,fontSize:13,lineHeight:1.5}},'Each procedure has different restrictions. This affects your exercises and safety limits.')),
+      ...subcats.map(s=>el('button',{key:s.id,onClick:()=>setSubcat(s.id),style:{display:'flex',alignItems:'center',gap:16,padding:'16px 20px',borderRadius:18,width:'100%',border:'2px solid '+(subcat===s.id?'#3EC99A':'#E0EDE8'),background:subcat===s.id?'#E6F9F2':'white',cursor:'pointer',textAlign:'left',marginBottom:12}},
+        el('span',{style:{fontSize:26}},s.icon),el('div',{style:{flex:1}},el('div',{style:{fontWeight:700,color:'#1E2D27',fontSize:15}},s.label),el('div',{style:{color:'#A8C0B5',fontSize:13}},s.desc)),subcat===s.id&&el('span',{style:{color:'#3EC99A',fontSize:22}},'✓')
+      ))
+    );
+    if(step===3)return el('div',{style:{padding:'36px 24px'}},
+      el('p',{style:{color:'#3EC99A',fontSize:12,fontWeight:700,letterSpacing:1.2,marginBottom:8}},'STEP 3 OF '+T),
+      el('h2',{style:{fontFamily:'Georgia,serif',fontSize:26,color:'#1E2D27',marginBottom:6}},'Where are you in your recovery?'),
+      el('p',{style:{color:'#A8C0B5',fontSize:14,marginBottom:18}},'This sets your starting exercises.'),
+      ...phaseOpts.map(p=>el('button',{key:p.phase,onClick:()=>setPhase(p.phase),style:{display:'flex',alignItems:'center',gap:16,padding:'18px 20px',borderRadius:18,width:'100%',border:'2px solid '+(phase===p.phase?'#3EC99A':'#E0EDE8'),background:phase===p.phase?'#E6F9F2':'white',cursor:'pointer',textAlign:'left',marginBottom:12}},
+        el('span',{style:{fontSize:28}},p.icon),el('div',{style:{flex:1}},el('div',{style:{fontWeight:700,color:'#1E2D27'}},p.label),el('div',{style:{color:'#A8C0B5',fontSize:13}},p.desc)),phase===p.phase&&el('span',{style:{color:'#3EC99A',fontSize:22}},'✓')
+      ))
+    );
+    if(step===4)return el('div',{style:{padding:'36px 24px'}},
+      el('p',{style:{color:'#3EC99A',fontSize:12,fontWeight:700,letterSpacing:1.2,marginBottom:8}},'STEP 4 OF '+T),
+      el('h2',{style:{fontFamily:'Georgia,serif',fontSize:26,color:'#1E2D27',marginBottom:6}},"How's your pain right now?"),
+      el('p',{style:{color:'#A8C0B5',fontSize:14,marginBottom:26}},"We'll adapt your session accordingly."),
+      el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:10}},...[1,2,3,4,5,6,7,8,9,10].map(n=>{const bg=n<=pain?(n<=3?'#3EC99A':n<=6?'#F5A623':'#E85B4B'):'#EDF2EF';return el('button',{key:n,onClick:()=>setPain(n),style:{width:32,height:32,borderRadius:'50%',border:'none',background:bg,color:n<=pain?'white':'#A8C0B5',fontWeight:700,cursor:'pointer',fontSize:12}},n);})),
+      el('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:24}},el('span',{style:{fontSize:12,color:'#A8C0B5'}},'No pain'),el('span',{style:{fontSize:12,color:'#A8C0B5'}},'Severe')),
+      pain>=7&&el('div',{style:{background:'#FFF1EC',border:'1.5px solid #FF7B54',borderRadius:14,padding:'14px 18px'}},el('p',{style:{color:'#FF7B54',fontSize:14,margin:0,fontWeight:600}},'High pain today — gentle exercises only. Contact your PT if this persists.'))
+    );
+    return el('div',{style:{padding:'36px 24px'}},
+      el('p',{style:{color:'#3EC99A',fontSize:12,fontWeight:700,letterSpacing:1.2,marginBottom:8}},'STEP 5 OF '+T),
+      el('h2',{style:{fontFamily:'Georgia,serif',fontSize:26,color:'#1E2D27',marginBottom:20}},"You're all set, "+name+"!"),
+      el('div',{className:'card',style:{marginBottom:16}},
+        el('p',{style:{color:'#A8C0B5',fontSize:12,fontWeight:700,marginBottom:12}},'YOUR PROFILE'),
+        ...[{label:'Name',value:name},{label:'Surgery area',value:surgLabel},{label:'Procedure',value:chosenSubcat?chosenSubcat.label:''},{label:'Phase',value:['','Early Recovery','Active Rehab','Return to Function'][phase]},{label:'Pain today',value:pain+' / 10'}]
+          .map(row=>el('div',{key:row.label,style:{display:'flex',justifyContent:'space-between',padding:'7px 0',borderBottom:'1px solid #F0F4F2'}},el('span',{style:{color:'#A8C0B5',fontSize:14}},row.label),el('span',{style:{color:'#1E2D27',fontWeight:700,fontSize:14}},row.value)))
+      ),
+      chosenSubcat&&el(PrecautionsPanel,{subcat:chosenSubcat})
+    );
+  };
+  return el('div',{className:'screen'},
+    el('div',{className:'onboard-progress'},el('div',{className:'onboard-progress-bar',style:{width:((step+1)/(T+1)*100)+'%'}})),
+    el('div',{style:{flex:1,overflowY:'auto'}},renderStep()),
+    el('div',{style:{padding:'16px 24px calc(var(--safe-bottom) + 20px)',display:'flex',gap:12}},
+      (step>0||isAdding)&&el('button',{onClick:step>0?()=>setStep(s=>s-1):onCancel,style:{flex:1,padding:16,borderRadius:16,border:'2px solid #3EC99A',background:'transparent',color:'#3EC99A',fontWeight:700,fontSize:16,cursor:'pointer'}},step>0?'Back':'Cancel'),
+      el('button',{disabled:!canNext,onClick:()=>step<5?setStep(s=>s+1):onComplete({name,surgery,subcat,phase,painLevel:pain}),style:{flex:2,padding:16,borderRadius:16,border:'none',background:canNext?'#3EC99A':'#C8DFD6',color:'white',fontWeight:700,fontSize:16,cursor:canNext?'pointer':'default'}},step<5?'Continue':'Start Recovering!')
+    )
+  );
+}
+// ── Home ──────────────────────────────────────────────────────────────────────
+function HomeScreen({ plan, allPlans, onStartWorkout, onSwitchPlan }) {
+  const affirmation = AFFIRMATIONS[new Date().getDay() % AFFIRMATIONS.length];
+  const surgType = SURGERY_TYPES.find(s => s.id === plan.surgery);
+  const allEx = EXERCISES[plan.surgery] || [];
+  const sessionEx = allEx.filter(e => e.phase <= plan.phase).filter(e => plan.painLevel >= 7 ? e.diff === 'Easy' : true);
+  const todayPlan = WEEKLY_PLAN[plan.phase][(new Date().getDay() + 6) % 7];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const el = React.createElement;
+
+  return el('div', { className:'screen pb-nav fade-in' },
+    el('div', { className:'hero' },
+      el('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 } },
+        el('div', null,
+          el('p', { style: { color:'#A8C0B5', fontSize:13, margin:'0 0 4px', fontWeight:600 } }, greeting + ' 👋'),
+          el('h1', null, plan.name)
+        ),
+        el('div', { style: { background:'rgba(255,255,255,0.1)', borderRadius:16, padding:'10px 18px', textAlign:'center' } },
+          el('div', { style: { color:'#3EC99A', fontSize:24, fontWeight:800 } }, plan.streak || 0),
+          el('div', { style: { color:'#A8C0B5', fontSize:11, fontWeight:600 } }, 'STREAK 🔥')
+        )
+      ),
+      el('div', { style: { display:'flex', gap:10 } },
+        el('div', { style: { background:'rgba(255,255,255,0.08)', borderRadius:14, padding:'12px 14px', flex:1, display:'flex', gap:10, alignItems:'center' } },
+          el('span', { style: { fontSize:22 } }, surgType ? surgType.icon : ''),
+          el('div', null,
+            el('div', { style: { color:'white', fontWeight:700, fontSize:14 } }, surgType ? surgType.label : ''),
+            el('div', { style: { color:'#A8C0B5', fontSize:12 } }, 'Phase ' + plan.phase)
+          )
+        ),
+        el('div', { style: { background:'rgba(255,255,255,0.08)', borderRadius:14, padding:'12px 14px', flex:1, display:'flex', gap:10, alignItems:'center' } },
+          el('span', { style: { fontSize:22 } }, '💊'),
+          el('div', null,
+            el('div', { style: { color:'white', fontWeight:700, fontSize:14 } }, 'Pain ' + plan.painLevel + '/10'),
+            el('div', { style: { color: plan.painLevel >= 7 ? '#FF7B54' : '#A8C0B5', fontSize:12 } }, plan.painLevel >= 7 ? 'Gentle mode' : 'All exercises')
+          )
+        )
+      )
+    ),
+    el('div', { style: { padding:'24px 24px 0' } },
+      todayPlan && el('div', { style: { background: todayPlan.intensity==='Rest'?'#F0F4F2':'#E6F9F2', borderRadius:18, padding:'14px 18px', marginBottom:18, borderLeft:'4px solid '+intColor(todayPlan.intensity) } },
+        el('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 } },
+          el('span', { style: { fontWeight:700, color:'#1E2D27', fontSize:15 } }, todayPlan.focus),
+          el(Chip, { label:todayPlan.intensity, color:intColor(todayPlan.intensity) })
+        ),
+        el('p', { style: { color:'#4A6358', fontSize:13, margin:0, lineHeight:1.5 } }, todayPlan.note)
+      ),
+      el('div', { style: { background:'#F4EFE6', borderRadius:18, padding:'14px 18px', marginBottom:22 } },
+        el('p', { style: { margin:0, color:'#4A6358', fontSize:15, fontStyle:'italic' } }, affirmation)
+      ),
+      el('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 } },
+        el('h2', { style: { margin:0, color:'#1E2D27', fontSize:20, fontFamily:'Georgia,serif' } }, "Today's Exercises"),
+        el('span', { style: { color:'#A8C0B5', fontSize:13 } }, sessionEx.length + ' exercises')
+      ),
+      ...sessionEx.map(ex => el('div', { key:ex.id, className:'card', style: { display:'flex', alignItems:'center', gap:14, padding:'14px 16px', marginBottom:12 } },
+        el('div', { style: { width:50, height:50, borderRadius:15, flexShrink:0, background:diffColor(ex.diff)+'18', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 } }, ex.icon),
+        el('div', { style: { flex:1, minWidth:0 } },
+          el('div', { style: { display:'flex', alignItems:'center', gap:8, marginBottom:4, flexWrap:'wrap' } },
+            el('span', { style: { fontWeight:700, color:'#1E2D27', fontSize:15 } }, ex.name),
+            el(Chip, { label:ex.diff, color:diffColor(ex.diff) })
+          ),
+          el('div', { style: { color:'#A8C0B5', fontSize:12 } }, ex.reps + ' reps x ' + ex.sets + ' sets')
+        ),
+        el('button', { onClick:()=>window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(ex.name+' physical therapy exercise demonstration'),'_blank'), style: { background:'#E6F9F2', border:'none', borderRadius:12, padding:'8px 12px', color:'#27A87C', fontSize:12, fontWeight:700, cursor:'pointer', flexShrink:0 } }, 'Demo')
+      )),
+      el('button', { onClick:()=>onStartWorkout(sessionEx, plan.id), style: { width:'100%', padding:20, borderRadius:20, border:'none', marginTop:8, background:'linear-gradient(135deg,#3EC99A,#27A87C)', color:'white', fontWeight:800, fontSize:18, cursor:'pointer' } }, 'Start Session 🌿')
+    )
+  );
+}
+
+// ── Workout ───────────────────────────────────────────────────────────────────
+function WorkoutScreen({ exercises, onComplete, onBack }) {
+  const [idx, setIdx] = useState(0);
+  const [phase, setPhase] = useState('intro');
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [totalTime, setTotalTime] = useState(0);
+  const [repsLeft, setRepsLeft] = useState(0);
+  const [setsDone, setSetsDone] = useState(0);
+  const ex = exercises[idx];
+  const el = React.createElement;
+
+  useEffect(() => { if (phase === 'intro') { setRepsLeft(ex.reps); setSetsDone(0); } }, [idx]);
+
+  useInterval(() => {
+    if ((phase==='go'||phase==='rest') && timeLeft > 0) { setTimeLeft(t=>t-1); }
+    else if (phase==='go' && timeLeft===0) {
+      if (repsLeft > 1) { setRepsLeft(r=>r-1); setPhase('rest'); setTimeLeft(ex.rest); setTotalTime(ex.rest); }
+      else if (setsDone < ex.sets-1) { setSetsDone(s=>s+1); setRepsLeft(ex.reps); setPhase('rest'); setTimeLeft(ex.rest); setTotalTime(ex.rest); }
+      else { setPhase('done'); }
+    } else if (phase==='rest' && timeLeft===0) { setPhase('go'); setTimeLeft(ex.duration); setTotalTime(ex.duration); }
+  }, (phase==='go'||phase==='rest') ? 1000 : null);
+
+  const pct = totalTime > 0 ? ((totalTime-timeLeft)/totalTime)*100 : 0;
+  const progress = (idx+(phase==='done'?1:0))/exercises.length*100;
+  const allDone = phase==='done' && idx >= exercises.length-1;
+
+  if (allDone) return el('div', { className:'screen fade-in', style: { background:'linear-gradient(160deg,#1E2D27,#2A4038)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:32, textAlign:'center' } },
+    el('div', { style: { fontSize:80, marginBottom:16 } }, '🎉'),
+    el('h1', { style: { fontFamily:'Georgia,serif', color:'white', fontSize:36, marginBottom:12 } }, 'Session Complete!'),
+    el('p', { style: { color:'#A8C0B5', fontSize:16, marginBottom:8 } }, 'You finished all ' + exercises.length + ' exercises.'),
+    el('p', { style: { color:'#3EC99A', fontSize:15, fontStyle:'italic', marginBottom:40 } }, 'The comeback is always stronger. 💚'),
+    el('button', { onClick:onComplete, style: { padding:'18px 48px', borderRadius:20, border:'none', background:'#3EC99A', color:'white', fontWeight:800, fontSize:18, cursor:'pointer' } }, 'Finish and Save 🌿')
+  );
+
+  return el('div', { className:'screen', style: { display:'flex', flexDirection:'column' } },
+    el('div', { style: { display:'flex', alignItems:'center', justifyContent:'space-between', padding:'calc(var(--safe-top)+12px) 24px 12px' } },
+      el('button', { onClick:onBack, style: { background:'none', border:'none', fontSize:26, cursor:'pointer', color:'#4A6358' } }, '‹'),
+      el('span', { style: { color:'#A8C0B5', fontWeight:600, fontSize:14 } }, (idx+1)+' / '+exercises.length),
+      el('button', { onClick:()=>window.open('https://www.youtube.com/results?search_query='+encodeURIComponent(ex.name+' physical therapy exercise demonstration'),'_blank'), style: { background:'#E6F9F2', border:'none', borderRadius:12, padding:'8px 14px', color:'#27A87C', fontSize:12, fontWeight:700, cursor:'pointer' } }, 'Demo')
+    ),
+    el('div', { style: { height:6, background:'#E0EDE8', margin:'0 24px', borderRadius:3 } },
+      el('div', { style: { height:'100%', background:'#3EC99A', width:progress+'%', borderRadius:3, transition:'width 0.4s' } })
+    ),
+    el('div', { style: { flex:1, display:'flex', flexDirection:'column', alignItems:'center', padding:24, gap:18 } },
+      el('div', { style: { textAlign:'center' } },
+        el('div', { style: { fontSize:58, marginBottom:8 } }, ex.icon),
+        el('h2', { style: { fontFamily:'Georgia,serif', color:'#1E2D27', fontSize:26, margin:'0 0 8px' } }, ex.name),
+        el('div', { style: { display:'flex', gap:8, justifyContent:'center' } },
+          el(Chip, { label:ex.diff, color:diffColor(ex.diff) }),
+          el(Chip, { label:'Set '+(setsDone+1)+'/'+ex.sets, color:'#9B8EC4' })
+        )
+      ),
+      phase!=='intro' && phase!=='done' && el(Ring, { pct, size:154, stroke:12, color:phase==='rest'?'#FF7B54':'#3EC99A', label:timeLeft, sublabel:phase==='rest'?'REST':'secs' }),
+      phase!=='intro' && el('div', { className:'card', style: { display:'flex', gap:24, justifyContent:'center', padding:'14px 32px' } },
+        el('div', { style: { textAlign:'center' } },
+          el('div', { style: { fontSize:26, fontWeight:800, color:'#1E2D27' } }, repsLeft),
+          el('div', { style: { fontSize:12, color:'#A8C0B5' } }, 'Reps left')
+        ),
+        el('div', { style: { width:1, background:'#E0EDE8' } }),
+        el('div', { style: { textAlign:'center' } },
+          el('div', { style: { fontSize:26, fontWeight:800, color:'#1E2D27' } }, ex.sets-setsDone-1),
+          el('div', { style: { fontSize:12, color:'#A8C0B5' } }, 'Sets left')
+        )
+      ),
+      el('div', { className:'card', style: { width:'100%' } },
+        phase==='rest' && el('p', { style: { margin:'0 0 8px', color:'#FF7B54', fontWeight:700 } }, 'Rest — breathe deeply'),
+        phase==='go' && el('p', { style: { margin:'0 0 8px', color:'#27A87C', fontWeight:700 } }, 'Go — stay focused'),
+        phase==='done' && el('p', { style: { margin:'0 0 8px', color:'#27A87C', fontWeight:700 } }, 'Exercise complete!'),
+        phase==='intro' && el('p', { style: { margin:'0 0 8px', fontWeight:700, color:'#1E2D27' } }, 'How to do it:'),
+        phase==='intro' && el('p', { style: { margin:'0 0 10px', color:'#4A6358', fontSize:14, lineHeight:1.6 } }, ex.steps[0]),
+        el('p', { style: { margin:0, color:'#A8C0B5', fontSize:12 } }, '⚠️ ' + ex.caution)
+      )
+    ),
+    el('div', { style: { padding:'12px 24px calc(var(--safe-bottom)+20px)', display:'flex', gap:12 } },
+      phase==='intro' && el('button', { onClick:()=>{ setPhase('go'); setTimeLeft(ex.duration); setTotalTime(ex.duration); },
+        style: { flex:1, padding:18, borderRadius:18, border:'none', background:'linear-gradient(135deg,#3EC99A,#27A87C)', color:'white', fontWeight:800, fontSize:17, cursor:'pointer' } }, 'Start Exercise'),
+      (phase==='go'||phase==='rest') && el('button', { onClick:()=>setPhase('intro'), style: { flex:1, padding:18, borderRadius:18, border:'2px solid #3EC99A', background:'transparent', color:'#3EC99A', fontWeight:700, fontSize:15, cursor:'pointer' } }, 'Restart'),
+      (phase==='go'||phase==='rest') && el('button', { onClick:()=>setPhase('done'), style: { flex:2, padding:18, borderRadius:18, border:'none', background:'#3EC99A', color:'white', fontWeight:700, fontSize:16, cursor:'pointer' } }, 'Mark Done ✓'),
+      phase==='done' && el('button', { onClick:()=>{ setIdx(i=>i+1); setPhase('intro'); },
+        style: { flex:1, padding:18, borderRadius:18, border:'none', background:'linear-gradient(135deg,#3EC99A,#27A87C)', color:'white', fontWeight:800, fontSize:17, cursor:'pointer' } }, 'Next Exercise')
+    )
+  );
+}
+
+// ── Plan ──────────────────────────────────────────────────────────────────────
+function PlansScreen({ plans, activePlanId, onSwitch, onAdd, onArchive, onRestore }) {
+  const [showArchived, setShowArchived] = useState(false);
+  const el = React.createElement;
+  const active = plans.filter(p => p.status !== 'archived');
+  const archived = plans.filter(p => p.status === 'archived');
+
+  const PlanCard = ({ plan, isActive }) => {
+    const surgType = SURGERY_TYPES.find(s => s.id === plan.surgery);
+    const subcatData = plan.subcat ? (SUBCATEGORIES[plan.surgery]||[]).find(s => s.id === plan.subcat) : null;
+    const phaseLabels = ['','Early Recovery','Active Rehab','Return to Function'];
+    return el('div', { style:{ background:'white', borderRadius:20, padding:'18px 20px', marginBottom:14,
+      boxShadow:'0 2px 16px rgba(30,45,39,0.07)',
+      border: isActive ? '2px solid #3EC99A' : '2px solid transparent' } },
+      el('div', { style:{ display:'flex', alignItems:'flex-start', gap:14, marginBottom:12 } },
+        el('div', { style:{ width:52, height:52, borderRadius:16, background: isActive ? '#E6F9F2' : '#F0F4F2',
+          display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 } },
+          surgType ? surgType.icon : '🏥'
+        ),
+        el('div', { style:{ flex:1 } },
+          el('div', { style:{ display:'flex', alignItems:'center', gap:8, marginBottom:4 } },
+            el('span', { style:{ fontWeight:700, color:'#1E2D27', fontSize:16 } }, subcatData ? subcatData.label : surgType ? surgType.label : 'Unknown'),
+            isActive && el('span', { className:'chip', style:{ background:'#E6F9F2', color:'#27A87C' } }, '● Active')
+          ),
+          el('div', { style:{ color:'#A8C0B5', fontSize:13 } }, phaseLabels[plan.phase] + ' · Pain ' + plan.painLevel + '/10'),
+          el('div', { style:{ color:'#A8C0B5', fontSize:12, marginTop:2 } }, 'Streak: ' + (plan.streak||0) + ' days 🔥')
+        )
+      ),
+      plan.status !== 'archived'
+        ? el('div', { style:{ display:'flex', gap:10 } },
+            !isActive && el('button', { onClick:()=>onSwitch(plan.id),
+              style:{ flex:2, padding:'11px', borderRadius:14, border:'none', background:'#3EC99A',
+                color:'white', fontWeight:700, cursor:'pointer', fontSize:14 } }, 'Switch to This Plan'),
+            isActive && el('div', { style:{ flex:2, padding:'11px', borderRadius:14, background:'#E6F9F2',
+              color:'#27A87C', fontWeight:700, fontSize:14, textAlign:'center' } }, '✓ Currently Active'),
+            el('button', { onClick:()=>{ if(window.confirm('Archive this plan? You can restore it later.')) onArchive(plan.id); },
+              style:{ flex:1, padding:'11px', borderRadius:14, border:'1.5px solid #E0EDE8',
+                background:'transparent', color:'#A8C0B5', fontWeight:700, cursor:'pointer', fontSize:13 } }, 'Archive')
+          )
+        : el('button', { onClick:()=>onRestore(plan.id),
+            style:{ width:'100%', padding:'11px', borderRadius:14, border:'1.5px solid #3EC99A',
+              background:'transparent', color:'#3EC99A', fontWeight:700, cursor:'pointer', fontSize:14 } }, 'Restore Plan')
+    );
+  };
+
+  return el('div', { className:'screen pb-nav fade-in' },
+    el('div', { className:'hero' },
+      el('h1', null, 'My Plans'),
+      el('p', null, active.length + ' active condition' + (active.length !== 1 ? 's' : ''))
+    ),
+    el('div', { style:{ padding:'20px 24px 0' } },
+
+      // Add new plan button
+      el('button', { onClick:onAdd,
+        style:{ width:'100%', padding:'16px', borderRadius:18, border:'2px dashed #3EC99A',
+          background:'transparent', color:'#3EC99A', fontWeight:700, fontSize:16, cursor:'pointer',
+          marginBottom:20, display:'flex', alignItems:'center', justifyContent:'center', gap:10 } },
+        el('span', { style:{ fontSize:22 } }, '+'),
+        el('span', null, 'Add a New Condition')
+      ),
+
+      // Active plans
+      active.length === 0 && el('div', { style:{ textAlign:'center', padding:'32px 0', color:'#A8C0B5' } },
+        el('div', { style:{ fontSize:48, marginBottom:12 } }, '🌱'),
+        el('p', { style:{ fontSize:16 } }, 'No active plans. Add a condition to get started.')
+      ),
+      ...active.map(p => el(PlanCard, { key:p.id, plan:p, isActive:p.id===activePlanId })),
+
+      // Archived section
+      archived.length > 0 && el('button', { onClick:()=>setShowArchived(s=>!s),
+        style:{ background:'none', border:'none', color:'#A8C0B5', fontSize:14, cursor:'pointer',
+          padding:'8px 0', marginBottom:12, display:'flex', alignItems:'center', gap:6 } },
+        el('span', null, showArchived ? '▼' : '▶'),
+        el('span', null, 'Archived Plans (' + archived.length + ')')
+      ),
+      showArchived && archived.map(p => el(PlanCard, { key:p.id, plan:p, isActive:false }))
+    )
+  );
+}
+function ProgressScreen({ plan, history }) {
+  const [exported, setExported] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [ptNotes, setPtNotes] = useState('');
+  const el = React.createElement;
+
+  const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const daysDone = new Set(history.map(h => new Date(h.date).getDay()));
+  const totalReps = history.reduce((a,h) => a+(h.totalReps||0), 0);
+  const avgPain = history.length ? (history.reduce((a,h)=>a+(h.pain||plan.painLevel),0)/history.length).toFixed(1) : plan.painLevel;
+  const surgLabel = (SURGERY_TYPES.find(s=>s.id===plan.surgery)||{}).label || plan.surgery;
+
+  const copyReport = () => {
+    const lines = [
+      'RECOVERY PROGRESS REPORT',
+      'Generated: ' + new Date().toLocaleDateString(),
+      'Patient: ' + plan.name,
+      'Surgery: ' + surgLabel,
+      'Phase: ' + plan.phase + ' of 3',
+      '---',
+      'Sessions: ' + history.length,
+      'Streak: ' + (plan.streak||0) + ' days',
+      'Total reps: ' + totalReps,
+      'Avg pain: ' + avgPain + '/10',
+      '---',
+    ];
+    weekDays.forEach((d,i) => lines.push(d + ': ' + (daysDone.has((i+1)%7)?'Done':'Missed')));
+    lines.push('---', 'PT NOTES', ptNotes || '(No notes)', '---', 'Generated by RecoverWell.');
+    try { navigator.clipboard.writeText(lines.join('\n')); } catch {}
+    alert('Report copied! Share it with your PT.');
+  };
+
+  return el('div', { className:'screen pb-nav fade-in' },
+    el('div', { className:'hero' },
+      el('h1', null, 'Your Progress'),
+      el('p', null, 'Keep building that momentum 🔥')
+    ),
+    el('div', { style: { padding:'24px 24px 0' } },
+      el('div', { style: { display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:22 } },
+        ...[
+          { label:'Sessions', value:history.length, icon:'💪', color:'#3EC99A' },
+          { label:'Day Streak', value:plan.streak||0, icon:'🔥', color:'#FF7B54' },
+          { label:'Total Reps', value:totalReps, icon:'🎯', color:'#F5A623' },
+          { label:'Avg Pain', value:avgPain+'/10', icon:'❤️', color:'#9B8EC4' },
+        ].map(s => el('div', { key:s.label, className:'card', style: { textAlign:'center', padding:'18px 14px' } },
+          el('div', { style: { fontSize:24, marginBottom:6 } }, s.icon),
+          el('div', { style: { fontSize:26, fontWeight:800, color:s.color } }, s.value),
+          el('div', { style: { color:'#A8C0B5', fontSize:13 } }, s.label)
+        ))
+      ),
+      el('h3', { style: { fontFamily:'Georgia,serif', color:'#1E2D27', fontSize:18, marginBottom:12 } }, 'This Week'),
+      el('div', { className:'card', style: { marginBottom:22 } },
+        el('div', { style: { display:'flex', justifyContent:'space-between' } },
+          ...weekDays.map((d,i) => {
+            const done = daysDone.has((i+1)%7);
+            return el('div', { key:d, style: { textAlign:'center' } },
+              el('div', { style: { fontSize:11, color:'#A8C0B5', marginBottom:8 } }, d),
+              el('div', { style: { width:36, height:36, borderRadius:'50%', background:done?'#3EC99A':'#F0F4F2',
+                display:'flex', alignItems:'center', justifyContent:'center', color:done?'white':'#A8C0B5', fontWeight:700 } }, done?'✓':'·')
+            );
+          })
+        )
+      ),
+      el('h3', { style: { fontFamily:'Georgia,serif', color:'#1E2D27', fontSize:18, marginBottom:12 } }, 'Apple Health & Export'),
+      el('div', { className:'card', style: { marginBottom:14 } },
+        el('div', { style: { display:'flex', alignItems:'center', gap:14, marginBottom:14 } },
+          el('div', { style: { width:48, height:48, borderRadius:14, background:'#FF2D5518', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26 } }, '❤️'),
+          el('div', { style: { flex:1 } },
+            el('p', { style: { margin:'0 0 2px', fontWeight:700, color:'#1E2D27', fontSize:15 } }, 'Apple Health'),
+            el('p', { style: { margin:0, color:'#A8C0B5', fontSize:13 } }, 'Sync workouts and active minutes')
+          ),
+          exported && el('span', { style: { color:'#3EC99A', fontSize:22 } }, '✓')
+        ),
+        el('div', { style: { background:'#F8F8F8', borderRadius:12, padding:'10px 14px', marginBottom:14 } },
+          ...[ { label:'Workouts logged', value:history.length }, { label:'Active minutes (est.)', value:history.length*20 }, { label:'Mindful minutes', value:history.length*5 } ]
+            .map(row => el('div', { key:row.label, style: { display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #EFEFEF' } },
+              el('span', { style: { color:'#4A6358', fontSize:13 } }, row.label),
+              el('span', { style: { fontWeight:700, color:'#1E2D27', fontSize:13 } }, row.value)
+            ))
+        ),
+        el('button', { onClick:()=>{ setExporting(true); setTimeout(()=>{ setExporting(false); setExported(true); }, 2000); }, disabled:exporting,
+          style: { width:'100%', padding:'14px', borderRadius:14, border:'none', background:exported?'#E6F9F2':'linear-gradient(135deg,#FF2D55,#FF6B8A)', color:exported?'#27A87C':'white', fontWeight:700, fontSize:15, cursor:'pointer' } },
+          exporting ? 'Syncing...' : exported ? 'Synced to Apple Health ✓' : 'Sync to Apple Health')
+      ),
+      el('div', { className:'card', style: { marginBottom:14 } },
+        el('div', { style: { display:'flex', alignItems:'center', gap:14, marginBottom:14 } },
+          el('div', { style: { width:48, height:48, borderRadius:14, background:'#E6F9F2', display:'flex', alignItems:'center', justifyContent:'center', fontSize:26 } }, '📋'),
+          el('div', null,
+            el('p', { style: { margin:'0 0 2px', fontWeight:700, color:'#1E2D27', fontSize:15 } }, 'PT Progress Report'),
+            el('p', { style: { margin:0, color:'#A8C0B5', fontSize:13 } }, 'Export a report for your therapist')
+          )
+        ),
+        showNotes && el('textarea', { placeholder:'Add notes for your PT...', value:ptNotes, onChange:e=>setPtNotes(e.target.value),
+          style: { width:'100%', minHeight:90, padding:'12px 14px', borderRadius:12, border:'2px solid #3EC99A', fontSize:14, lineHeight:1.5, resize:'vertical', outline:'none', color:'#1E2D27', background:'#F8F7F3', boxSizing:'border-box', marginBottom:10 } }),
+        el('div', { style: { display:'flex', gap:10 } },
+          el('button', { onClick:()=>setShowNotes(n=>!n), style: { flex:1, padding:'12px', borderRadius:12, border:'2px solid #3EC99A', background:'transparent', color:'#3EC99A', fontWeight:700, cursor:'pointer', fontSize:14 } }, showNotes?'Hide Notes':'Add PT Notes'),
+          el('button', { onClick:copyReport, style: { flex:1, padding:'12px', borderRadius:12, border:'none', background:'#3EC99A', color:'white', fontWeight:700, cursor:'pointer', fontSize:14 } }, 'Copy Report')
+        )
+      )
+    )
+  );
+}
+
+// ── Coach ─────────────────────────────────────────────────────────────────────
+function CoachScreen({ user }) {
+  const [messages, setMessages] = useState([
+    { role:'assistant', text:'Hi ' + user.name + '! I am your recovery coach. Type a question below.' }
+  ]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef();
+  const el = React.createElement;
+
+  useEffect(() => {
+    if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior:'smooth' });
+  }, [messages]);
+
+  const send = async () => {
+    const msg = input.trim();
+    if (!msg || loading) return;
+    setInput('');
+    setMessages(m => [...m, { role:'user', text:msg }]);
+    setLoading(true);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          model:'claude-sonnet-4-20250514',
+          max_tokens:1000,
+          system:'You are a PT recovery coach. Patient: ' + user.name + '. Procedure: ' + (user.subcat||user.surgery) + '. Phase: ' + user.phase + '/3. Pain: ' + user.painLevel + '/10. Give practical advice in 2-4 sentences. Always recommend consulting their PT for medical decisions.',
+          messages: messages.slice(1).map(m=>({role:m.role,content:m.text})).concat([{role:'user',content:msg}])
+        })
+      });
+      const data = await res.json();
+      const reply = data.content&&data.content[0] ? data.content[0].text : 'Please try again.';
+      setMessages(m => [...m, { role:'assistant', text:reply }]);
+    } catch(e) {
+      setMessages(m => [...m, { role:'assistant', text:'Connection issue. Please try again.' }]);
+    }
+    setLoading(false);
+  };
+
+  return el('div', {
+    style:{ position:'fixed', inset:0, zIndex:50, background:'#F8F7F3', display:'flex', flexDirection:'column' }
+  },
+    // Header
+    el('div', { style:{ background:'linear-gradient(145deg,#1E2D27,#2A4038)', padding:'calc(var(--safe-top) + 12px) 24px 20px', flexShrink:0 } },
+      el('div', { style:{ display:'flex', alignItems:'center', gap:14 } },
+        el('div', { style:{ width:48, height:48, borderRadius:'50%', background:'#3EC99A', display:'flex', alignItems:'center', justifyContent:'center', fontSize:22 } }, '🌿'),
+        el('div', null,
+          el('h2', { style:{ color:'white', margin:0, fontSize:20, fontFamily:'Georgia,serif' } }, 'Recovery Coach'),
+          el('p', { style:{ color:'#A8C0B5', margin:0, fontSize:13 } }, 'AI-powered · Always here for you')
+        )
+      )
+    ),
+
+    // Messages
+    el('div', { style:{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:12 } },
+      ...messages.map((m,i) =>
+        el('div', { key:i, style:{ display:'flex', justifyContent:m.role==='user'?'flex-end':'flex-start' } },
+          el('div', { style:{
+            maxWidth:'82%', padding:'12px 16px', borderRadius:18,
+            borderBottomRightRadius:m.role==='user'?4:18,
+            borderBottomLeftRadius:m.role==='assistant'?4:18,
+            background:m.role==='user'?'#3EC99A':'white',
+            color:m.role==='user'?'white':'#1E2D27',
+            fontSize:15, lineHeight:1.6,
+            boxShadow:'0 2px 8px rgba(30,45,39,0.08)'
+          } }, m.text)
+        )
+      ),
+      loading && el('div', { style:{ display:'flex' } },
+        el('div', { style:{ background:'white', padding:'12px 16px', borderRadius:18, borderBottomLeftRadius:4 } },
+          el('span', { style:{ color:'#A8C0B5' } }, 'Thinking...')
+        )
+      ),
+      el('div', { ref:bottomRef })
+    ),
+
+    // Input — pinned to bottom, above tab bar
+    el('div', { style:{
+      flexShrink:0, display:'flex', gap:10, padding:'12px 16px',
+      paddingBottom:'calc(80px + var(--safe-bottom))',
+      background:'white', borderTop:'2px solid #E8F0EB'
+    } },
+      el('input', {
+        value:input,
+        onChange:e=>setInput(e.target.value),
+        onKeyDown:e=>{ if(e.key==='Enter'){ e.preventDefault(); send(); } },
+        placeholder:'Type your question...',
+        style:{
+          flex:1, padding:'13px 18px', borderRadius:24,
+          border:'2px solid #3EC99A', fontSize:15,
+          outline:'none', background:'#F8F7F3', color:'#1E2D27'
+        }
+      }),
+      el('button', {
+        onClick:send,
+        disabled:loading||!input.trim(),
+        style:{
+          width:50, height:50, borderRadius:'50%', border:'none', flexShrink:0,
+          background:input.trim()?'#3EC99A':'#C8DFD6',
+          color:'white', fontSize:22,
+          cursor:input.trim()?'pointer':'default'
+        }
+      }, '↑')
+    )
+  );
+}
+// ── Meds ──────────────────────────────────────────────────────────────────────
+function MedsScreen() {
+  const [meds, setMeds] = useStorage('rw-meds', [
+    { id:1, name:'Anti-inflammatory', dose:'200mg', times:['8:00 AM','8:00 PM'], taken:{}, color:'#3EC99A' },
+    { id:2, name:'Pain Medication', dose:'As needed', times:['As needed'], taken:{}, color:'#FF7B54' },
+  ]);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDose, setNewDose] = useState('');
+  const [newTime, setNewTime] = useState('08:00');
+  const today = new Date().toDateString();
+  const colors = ['#3EC99A','#FF7B54','#F5A623','#9B8EC4'];
+  const el = React.createElement;
+
+  const toggle = (medId, time) => setMeds(prev => prev.map(m => {
+    if (m.id !== medId) return m;
+    const key = today + '-' + time;
+    return { ...m, taken: { ...m.taken, [key]: !m.taken[key] } };
+  }));
+
+  const addMed = () => {
+    if (!newName.trim()) return;
+    setMeds(prev => [...prev, { id:Date.now(), name:newName, dose:newDose, times:[newTime], taken:{}, color:colors[prev.length%4] }]);
+    setNewName(''); setNewDose(''); setNewTime('08:00'); setShowAdd(false);
+  };
+
+  const takenToday = meds.flatMap(m => m.times.filter(t => m.taken[today+'-'+t])).length;
+  const totalDoses = meds.flatMap(m => m.times).length;
+
+  return el('div', { className:'screen pb-nav fade-in' },
+    el('div', { style: { background:'linear-gradient(145deg,#1E2D27,#2A4038)', padding:'calc(var(--safe-top)+12px) 24px 28px', borderRadius:'0 0 32px 32px' } },
+      el('h1', { style: { color:'white', fontFamily:'Georgia,serif', fontSize:28, margin:'0 0 4px' } }, 'Medications'),
+      el('p', { style: { color:'#A8C0B5', margin:'0 0 12px', fontSize:14 } }, takenToday+'/'+totalDoses+' doses taken today'),
+      totalDoses > 0 && el('div', { style: { height:6, background:'rgba(255,255,255,0.15)', borderRadius:3 } },
+        el('div', { style: { height:'100%', background:'#3EC99A', borderRadius:3, width:((takenToday/totalDoses)*100)+'%', transition:'width 0.4s' } })
+      )
+    ),
+    el('div', { style: { padding:'24px 24px 0' } },
+      ...meds.map(med => el('div', { key:med.id, className:'card', style: { marginBottom:14, borderLeft:'4px solid '+med.color } },
+        el('div', { style: { display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:12 } },
+          el('div', null,
+            el('p', { style: { fontWeight:700, color:'#1E2D27', margin:'0 0 2px', fontSize:16 } }, med.name),
+            el('p', { style: { color:'#A8C0B5', margin:0, fontSize:13 } }, med.dose)
+          ),
+          el('button', { onClick:()=>setMeds(p=>p.filter(m=>m.id!==med.id)), style: { background:'none', border:'none', color:'#A8C0B5', fontSize:22, cursor:'pointer' } }, '×')
+        ),
+        ...med.times.map(time => {
+          const key = today+'-'+time, taken = med.taken[key];
+          return el('div', { key:time, style: { display:'flex', alignItems:'center', justifyContent:'space-between',
+            padding:'10px 14px', borderRadius:12, background:taken?med.color+'18':'#F8FAF9',
+            border:'1.5px solid '+(taken?med.color:'#E0EDE8'), marginBottom:8 } },
+            el('div', { style: { display:'flex', alignItems:'center', gap:10 } },
+              el('span', { style: { fontSize:18 } }, taken?'✅':'⏰'),
+              el('span', { style: { fontWeight:600, color:'#1E2D27', fontSize:14 } }, time)
+            ),
+            el('button', { onClick:()=>toggle(med.id,time), style: { padding:'8px 14px', borderRadius:12, border:'1.5px solid '+med.color,
+              background:taken?med.color:'white', color:taken?'white':med.color, fontWeight:700, fontSize:13, cursor:'pointer' } },
+              taken?'Taken':'Mark Taken')
+          );
+        })
+      )),
+      showAdd ? el('div', { className:'card', style: { marginBottom:16 } },
+        el('p', { style: { fontWeight:700, color:'#1E2D27', margin:'0 0 14px', fontSize:16 } }, 'Add Medication'),
+        el('input', { placeholder:'Medication name', value:newName, onChange:e=>setNewName(e.target.value),
+          style: { width:'100%', padding:'12px 14px', borderRadius:12, border:'2px solid #E0EDE8', fontSize:15, outline:'none', background:'#F8F7F3', marginBottom:10, display:'block' } }),
+        el('input', { placeholder:'Dose (e.g. 200mg)', value:newDose, onChange:e=>setNewDose(e.target.value),
+          style: { width:'100%', padding:'12px 14px', borderRadius:12, border:'2px solid #E0EDE8', fontSize:15, outline:'none', background:'#F8F7F3', marginBottom:10, display:'block' } }),
+        el('input', { type:'time', value:newTime, onChange:e=>setNewTime(e.target.value),
+          style: { width:'100%', padding:'12px 14px', borderRadius:12, border:'2px solid #E0EDE8', fontSize:15, outline:'none', background:'#F8F7F3', marginBottom:14, display:'block' } }),
+        el('div', { style: { display:'flex', gap:10 } },
+          el('button', { onClick:()=>setShowAdd(false), style: { flex:1, padding:'12px', borderRadius:12, border:'2px solid #E0EDE8', background:'transparent', color:'#A8C0B5', fontWeight:700, cursor:'pointer' } }, 'Cancel'),
+          el('button', { onClick:addMed, style: { flex:2, padding:'12px', borderRadius:12, border:'none', background:'#3EC99A', color:'white', fontWeight:700, cursor:'pointer' } }, 'Add Medication')
+        )
+      ) : el('button', { onClick:()=>setShowAdd(true),
+        style: { width:'100%', padding:'16px', borderRadius:18, border:'2px dashed #3EC99A', background:'transparent', color:'#3EC99A', fontWeight:700, fontSize:16, cursor:'pointer', marginBottom:16 } },
+        '+ Add Medication'),
+      el('div', { style: { background:'#FFF1EC', borderRadius:14, padding:'14px 18px' } },
+        el('p', { style: { color:'#FF7B54', fontSize:13, margin:0, lineHeight:1.6, fontWeight:600 } }, 'Always follow your doctor\'s prescription. This is a reminder tool only.')
+      )
+    )
+  );
+}
+
+// ── Install Banner ────────────────────────────────────────────────────────────
+function InstallBanner() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone;
+    const dismissed = localStorage.getItem('rw-install-dismissed');
+    if (isIOS && !isStandalone && !dismissed) setTimeout(() => setShow(true), 3000);
+  }, []);
+  if (!show) return null;
+  return React.createElement('div', { className:'install-banner show' },
+    React.createElement('button', { onClick:()=>{ setShow(false); localStorage.setItem('rw-install-dismissed','1'); } }, '✕'),
+    React.createElement('strong', null, 'Add to Home Screen'),
+    React.createElement('br'),
+    'Tap the Share button below, then "Add to Home Screen" to install RecoverWell like an app.'
+  );
+}
+
+// ── Root App ──────────────────────────────────────────────────────────────────
+function App() {
+  // Multi-plan storage — array of independent plans
+  const [plans, setPlans] = useStorage('rw-plans-v1', []);
+  const [activePlanId, setActivePlanId] = useStorage('rw-active-plan', null);
+  const [screen, setScreen] = useState(plans.length > 0 ? 'main' : 'onboarding');
+  const [tab, setTab] = useState('home');
+  const [workoutEx, setWorkoutEx] = useState([]);
+  const [workoutPlanId, setWorkoutPlanId] = useState(null);
+  const [history, setHistory] = useStorage('rw-history', []);
+  const [addingPlan, setAddingPlan] = useState(false);
+  const el = React.createElement;
+
+  const activePlan = plans.find(p => p.id === activePlanId) || plans[0] || null;
+
+  const onOnboardComplete = (data) => {
+    const newPlan = {
+      ...data,
+      id: Date.now().toString(),
+      streak: 0,
+      createdAt: new Date().toISOString(),
+      status: 'active',
+    };
+    const newPlans = [...plans, newPlan];
+    setPlans(newPlans);
+    setActivePlanId(newPlan.id);
+    setAddingPlan(false);
+    setScreen('main');
+    setTab('home');
+  };
+
+  const onStartWorkout = (exs, planId) => {
+    setWorkoutEx(exs);
+    setWorkoutPlanId(planId);
+    setScreen('workout');
+  };
+
+  const onWorkoutDone = () => {
+    const totalReps = workoutEx.reduce((a,e) => a+e.reps*e.sets, 0);
+    setHistory(h => [...h, { date:new Date().toISOString(), exercises:workoutEx.length, totalReps, pain:activePlan.painLevel, planId:workoutPlanId }]);
+    setPlans(ps => ps.map(p => p.id===workoutPlanId ? {...p, streak:(p.streak||0)+1} : p));
+    setScreen('main');
+    setTab('home');
+  };
+
+  const onArchivePlan = (planId) => {
+    setPlans(ps => ps.map(p => p.id===planId ? {...p, status:'archived'} : p));
+    if (activePlanId === planId) {
+      const next = plans.find(p => p.id !== planId && p.status === 'active');
+      setActivePlanId(next ? next.id : null);
+    }
+  };
+
+  const onRestorePlan = (planId) => {
+    setPlans(ps => ps.map(p => p.id===planId ? {...p, status:'active'} : p));
+  };
+
+  // Show onboarding when adding new plan or no plans exist
+  if (screen === 'onboarding' || addingPlan) {
+    return el(Onboarding, { onComplete: onOnboardComplete, isAdding: addingPlan, onCancel: addingPlan ? ()=>{ setAddingPlan(false); setScreen('main'); } : null });
+  }
+  if (screen === 'workout') {
+    return el(WorkoutScreen, { exercises:workoutEx, onComplete:onWorkoutDone, onBack:()=>setScreen('main') });
+  }
+
+  const tabs = [
+    { id:'home',     icon:'🏠', label:'Home' },
+    { id:'plans',    icon:'📋', label:'Plans' },
+    { id:'coach',    icon:'🌿', label:'Coach' },
+    { id:'progress', icon:'📈', label:'Progress' },
+    { id:'meds',     icon:'💊', label:'Meds' },
+  ];
+
+  return el('div', null,
+    tab==='home'     && el(HomeScreen,     { plan:activePlan, allPlans:plans.filter(p=>p.status==='active'), onStartWorkout, onSwitchPlan:id=>setActivePlanId(id) }),
+    tab==='plans'    && el(PlansScreen,    { plans, activePlanId, onSwitch:id=>{ setActivePlanId(id); setTab('home'); }, onAdd:()=>setAddingPlan(true), onArchive:onArchivePlan, onRestore:onRestorePlan }),
+    tab==='progress' && el(ProgressScreen, { plan:activePlan, history:history.filter(h=>h.planId===activePlanId||!h.planId) }),
+    tab==='meds'     && el(MedsScreen),
+    el('div', { className:'tab-bar' },
+      ...tabs.map(t => el('button', { key:t.id, className:'tab-btn '+(tab===t.id?'active':''), onClick:()=>setTab(t.id) },
+        el('span', null, t.icon),
+        el('span', null, t.label)
+      ))
+    ),
+    tab==='coach' && el('div', { style:{ position:'fixed', inset:0, zIndex:50, background:'#F8F7F3' } },
+      el(CoachScreen, { user:activePlan||{name:'',surgery:'',subcat:'',phase:1,painLevel:3} }),
+      el('button', { onClick:()=>setTab('home'), style:{ position:'absolute', top:'calc(var(--safe-top) + 16px)', right:16, background:'rgba(255,255,255,0.2)', border:'none', color:'white', borderRadius:'50%', width:36, height:36, fontSize:18, cursor:'pointer', zIndex:51 } }, '✕')
+    ),
+    el(InstallBanner)
+  );
+}
+ReactDOM.createRoot(document.getElementById('app')).render(React.createElement(App));
+</script>
+</body>
+</html>
